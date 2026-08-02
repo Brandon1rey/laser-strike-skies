@@ -292,11 +292,33 @@ function buildCore(crystal) {
   g.add(m);
   return g;
 }
-function buildBlock(w, h, d) {
-  const g = new THREE.Group();
-  const body = box(w, h, d, MAT.block); g.add(body);
-  const edge = box(w + 0.3, h + 0.3, d + 0.3, MAT.blockEdge); g.add(edge);
-  return g;
+/* ── InstancedMesh para el decorado de bloques ─────────────────────
+   Perf budget: 40 bloques × 2 meshes = 80 draw calls habría excedido el
+   target (<100). InstancedMesh lo reduce a 2 draw calls totales. */
+const _instBodyGeo = new THREE.BoxGeometry(1, 1, 1);
+const _instEdgeGeo = new THREE.BoxGeometry(1.02, 1.02, 1.02);
+const instBody = new THREE.InstancedMesh(_instBodyGeo, MAT.block, TUNING.blockCap);
+const instEdge = new THREE.InstancedMesh(_instEdgeGeo, MAT.blockEdge, TUNING.blockCap);
+instBody.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+instEdge.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+world3d.add(instBody);
+world3d.add(instEdge);
+const _instM = new THREE.Matrix4();
+const _instQ = new THREE.Quaternion();
+const _instS = new THREE.Vector3();
+const _instP = new THREE.Vector3();
+function updateInstancedBlocks() {
+  for (let i = 0; i < blocks.length; i++) {
+    const b = blocks[i];
+    _instQ.setFromEuler(b.rot);
+    _instS.setScalar(b.sc);
+    _instP.copy(b.position);
+    _instM.compose(_instP, _instQ, _instS);
+    instBody.setMatrixAt(i, _instM);
+    instEdge.setMatrixAt(i, _instM);
+  }
+  instBody.instanceMatrix.needsUpdate = true;
+  instEdge.instanceMatrix.needsUpdate = true;
 }
 /* ============================ SCENE SYSTEM ========================== */
 const scenes = {}; let scene = null, sceneName = "";
@@ -450,7 +472,8 @@ function updatePlayer(dt) {
   if (tx && state.fireT <= 0) {
     state.fireT = TUNING.fireCooldown;
     const target = meshPos(tx);
-    const dir = new THREE.Vector3(target.x - state.px, target.y - state.py, target.z).normalize();
+    _scratchDir.set(target.x - state.px, target.y - state.py, target.z).normalize();
+    const dir = _scratchDir;
     const color = state.weapon === 0 ? MAT.laserPulse : MAT.laserBeam;
     if (state.weapon === 0) {
       lasers.spawn(l => {
@@ -464,8 +487,8 @@ function updatePlayer(dt) {
       for (let i = -1; i <= 1; i++) {
         lasers.spawn(l => {
           l.visible = true;
-          const off = new THREE.Vector3(-dir.y, dir.x, 0).multiplyScalar(i*1.6);
-          l.position.set(state.px + dir.x*2 + off.x, state.py + dir.y*2 + off.y, dir.z*2 + off.z);
+          _scratchOff.set(-dir.y, dir.x, 0).multiplyScalar(i*1.6);
+          l.position.set(state.px + dir.x*2 + _scratchOff.x, state.py + dir.y*2 + _scratchOff.y, dir.z*2 + _scratchOff.z);
           l.dir = dir.clone(); l.big = true;
           l.traverse(m => { m.material = color; m.scale.set(1.8, 1.8, 1); });
         });
@@ -550,7 +573,8 @@ function updateWaves(dt) {
           bossShots.spawn(s => {
             s.visible = true;
             s.position.set(boss.mesh.position.x + i*4, boss.mesh.position.y + i*2, boss.mesh.position.z);
-            s.dir = new THREE.Vector3(state.px - s.position.x + (i*2), state.py - s.position.y + (i*1), 0 - s.position.z).normalize();
+            _scratchShot.set(state.px - s.position.x + (i*2), state.py - s.position.y + (i*1), 0 - s.position.z).normalize();
+            s.dir = _scratchShot.clone();
             s.r = 1.2;
             s.traverse(m => { m.material = MAT.bossEye; m.scale.set(1.6, 1.6, 1.6); });
           });
@@ -618,14 +642,15 @@ function killPlayer(reason) {
   }
 }
 function updateWorld(dt) {
-  // bloques del sky city (decorado 3D, se acercan y reciclan)
+  // bloques del sky city (InstancedMesh — actualizar matrices + reciclar)
   for (const b of blocks) {
     b.position.z += 18 * dt;
     if (b.position.z > 30) {
       b.position.set((rng()-0.5)*220, (rng()-0.5)*140, TUNING.spawnZ - rng()*100);
-      b.scale.setScalar(0.8 + rng()*1.6);
+      b.sc = 0.8 + rng()*1.6;
     }
   }
+  updateInstancedBlocks();
   // láseres
   lasers.each(l => {
     l.position.addScaledVector(l.dir, TUNING.laserSpeed * dt);
@@ -720,10 +745,16 @@ function updateWorld(dt) {
   }
 }
 /* ============================== RENDER ============================== */
+// Scratch objects: cero allocaciones por frame (budget perf — GC hitches
+// son la causa #1 de "corre bien y luego tartamudea").
 const camShake = { x: 0, y: 0 };
+const _scratchDesired = new THREE.Vector3();
+const _scratchDir = new THREE.Vector3();
+const _scratchOff = new THREE.Vector3();
+const _scratchShot = new THREE.Vector3();
 function render3d() {
-  const desired = new THREE.Vector3(state.px, state.py + TUNING.camOffset.y, TUNING.camOffset.z);
-  camera.position.lerp(desired, 0.09);
+  _scratchDesired.set(state.px, state.py + TUNING.camOffset.y, TUNING.camOffset.z);
+  camera.position.lerp(_scratchDesired, 0.09);
   camera.position.x += camShake.x;
   camera.position.y += camShake.y;
   camera.lookAt(state.px, state.py, -8);
@@ -737,16 +768,17 @@ document.addEventListener("visibilitychange", () => { paused = document.hidden |
 $("startBtn").onclick = () => { audioInit(); beep(800, 0.05, "sine"); setScene("play"); };
 $("retryBtn").onclick = () => { beep(800, 0.05, "sine"); setScene("play"); };
 $("againBtn").onclick = () => { beep(800, 0.05, "sine"); setScene("play"); };
-// sky city: bloques 3D
+// sky city: bloques 3D (InstancedMesh — 2 draw calls, no 80)
 for (let i = 0; i < TUNING.blockCap; i++) {
   const w = 12 + rng()*26, h = 12 + rng()*26, d = 12 + rng()*26;
-  const b = buildBlock(w, h, d);
-  b.position.set((rng()-0.5)*240, (rng()-0.5)*160, TUNING.spawnZ - rng()*260);
-  b.scale.setScalar(0.8 + rng()*1.4);
-  b.rotation.y = rng()*3;
-  world3d.add(b);
-  blocks.push(b);
+  blocks.push({
+    position: new THREE.Vector3((rng()-0.5)*240, (rng()-0.5)*160, TUNING.spawnZ - rng()*260),
+    rot: new THREE.Euler(0, rng()*3, 0),
+    sc: 0.8 + rng()*1.4,
+    w, h, d,
+  });
 }
+updateInstancedBlocks();
 function frame(now) {
   requestAnimationFrame(frame);
   acc += Math.min((now - last) / 1000, 0.25); last = now;
