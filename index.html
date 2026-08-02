@@ -1,45 +1,45 @@
 <!DOCTYPE html>
-<!-- Laser Strike Skies — clon WEB jugable del juego Roblox (spec v1.0.0-alpha)
-     Core verb: volar + láser auto-aim. 3 misiones del spec:
-     DESTRUIR DRONES → ESCORTAR NAVE → OMEGA MEGA-BOT (3 fases).
-     Armas del registro: Pulse Laser R1 (rojo) / Mega-Beam (cian, Q o botón).
-     Monedas del DataStore: Energy Cores (◆) + Starlight Crystals (✧), XP/NVL.
-     Mobile-first: canvas rota portrait (480x800) / landscape (800x480),
-     joystick táctil, botones ≥44px. Motor: esqueleto game-forge. -->
+<!-- Laser Strike Skies — clon web del juego Roblox (estética Roblox: avatar
+     R6 blocky en 3a persona, vista trasera, mundo de bloques plástico).
+     Core verb: volar hacia adelante + láser auto-aim. 3 misiones del spec:
+     DESTRUIR DRONES → ESCORTAR NAVE → OMEGA MEGA-BOT. Armas del registro:
+     Pulse Laser R1 / Mega-Beam. Monedas: Energy Cores + Starlight.
+     Todo procedimental (sin assets externos), mobile-first. -->
 <html lang="es">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<title>Laser Strike Skies — Web Demo</title>
+<title>Laser Strike Skies — Roblox-style Web Demo</title>
 <style>
-  html,body{margin:0;height:100%;background:#070a14;overflow:hidden;font-family:system-ui,sans-serif}
+  html,body{margin:0;height:100%;background:#0e1420;overflow:hidden;font-family:system-ui,sans-serif}
   #wrap{position:fixed;inset:0;display:flex;align-items:center;justify-content:center}
-  canvas{background:#070a14;touch-action:none;display:block}
-  #ui{position:fixed;inset:0;pointer-events:none;color:#e8f0ff;user-select:none;-webkit-user-select:none}
-  #hud{position:absolute;top:10px;left:14px;font:700 17px/1.3 system-ui;font-variant-numeric:tabular-nums;text-shadow:0 2px 8px #000}
-  #hud .core{color:#ffd166;font-size:21px}
-  #hud .cryst{color:#ff6bd6;font-size:14px}
+  canvas{background:linear-gradient(#1b2a4a,#0e1420);touch-action:none;display:block}
+  #ui{position:fixed;inset:0;pointer-events:none;color:#fff;user-select:none;-webkit-user-select:none}
+  #hud{position:absolute;top:10px;left:14px;font:700 16px/1.3 system-ui;font-variant-numeric:tabular-nums;text-shadow:0 2px 6px #000}
+  #hud .core{color:#ffd166;font-size:20px}
+  #hud .cryst{color:#ff6bd6;font-size:13px}
   #hud .xp{color:#7df9ff;font-size:12px;opacity:.9}
-  #hud .shields{font-size:14px;letter-spacing:2px}
-  #waveBar{position:absolute;top:10px;left:50%;transform:translateX(-50%);text-align:center;font:800 14px system-ui;letter-spacing:.14em;color:#9fe8ff;text-shadow:0 0 14px #0ff8;opacity:0;transition:opacity .3s;white-space:nowrap}
-  #bossBarWrap{position:absolute;top:44px;left:50%;transform:translateX(-50%);width:min(340px,56vw);height:9px;background:#241a30;border:1px solid #ff5470aa;border-radius:6px;opacity:0;transition:opacity .3s}
-  #bossBar{height:100%;width:100%;background:linear-gradient(90deg,#ff5470,#ff8c42);border-radius:6px;transition:width .15s}
-  #escortBarWrap{position:absolute;top:44px;left:50%;transform:translateX(-50%);width:min(340px,56vw);height:9px;background:#241a30;border:1px solid #7df9ffaa;border-radius:6px;opacity:0;transition:opacity .3s}
-  #escortBar{height:100%;width:100%;background:linear-gradient(90deg,#7df9ff,#4dd0ff);border-radius:6px;transition:width .15s}
-  .screen{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;text-align:center;background:rgba(5,7,16,.6)}
-  .screen h1{font:900 min(8vw,46px) system-ui;letter-spacing:.08em;margin:0;color:#7df9ff;text-shadow:0 0 28px #0ff8}
-  .screen h1 .strike{color:#ff5470;text-shadow:0 0 28px #f05}
-  .screen p{margin:0;opacity:.85;font-size:15px;padding:0 26px;line-height:1.5}
+  #hud .shields{font-size:13px;letter-spacing:2px}
+  #waveBar{position:absolute;top:10px;left:50%;transform:translateX(-50%);text-align:center;font:800 13px system-ui;letter-spacing:.14em;color:#9fe8ff;text-shadow:0 0 14px #0ff8;opacity:0;transition:opacity .3s;white-space:nowrap}
+  #bossBarWrap{position:absolute;top:44px;left:50%;transform:translateX(-50%);width:min(320px,54vw);height:9px;background:#241a30;border:1px solid #ff5470aa;border-radius:5px;opacity:0;transition:opacity .3s}
+  #bossBar{height:100%;width:100%;background:linear-gradient(90deg,#ff5470,#ff8c42);border-radius:5px;transition:width .15s}
+  #escortBarWrap{position:absolute;top:44px;left:50%;transform:translateX(-50%);width:min(320px,54vw);height:9px;background:#241a30;border:1px solid #7df9ffaa;border-radius:5px;opacity:0;transition:opacity .3s}
+  #escortBar{height:100%;width:100%;background:linear-gradient(90deg,#7df9ff,#4dd0ff);border-radius:5px;transition:width .15s}
+  .screen{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;text-align:center;background:rgba(8,12,22,.72)}
+  .screen h1{font:900 min(8vw,44px) system-ui;letter-spacing:.06em;margin:0;color:#fff;text-shadow:0 4px 0 #1a2a5a,0 0 26px #4db8ff66}
+  .screen h1 .strike{color:#ff5470;text-shadow:0 4px 0 #5a1020,0 0 26px #f058}
+  .screen p{margin:0;opacity:.88;font-size:14px;padding:0 24px;line-height:1.5;color:#cfe4ff}
   .screen .core-note{color:#ffd166}
-  .btn{pointer-events:auto;border:2px solid #7df9ff;background:transparent;color:#7df9ff;font:700 18px system-ui;padding:14px 38px;border-radius:10px;cursor:pointer;min-width:44px;min-height:44px}
-  .btn:active{background:#7df9ff22}
-  #mute{position:absolute;top:10px;right:14px;pointer-events:auto;opacity:.7;font-size:22px;background:none;border:none;color:#e8f0ff;cursor:pointer;min-width:44px;min-height:44px}
+  .btn{pointer-events:auto;font:800 20px system-ui;padding:14px 46px;border-radius:8px;cursor:pointer;min-width:44px;min-height:44px;border:none;color:#fff;background:linear-gradient(#7edb3a,#4caf28);box-shadow:0 4px 0 #2e7a14,0 0 18px #7edb3a55;letter-spacing:.04em}
+  .btn:active{transform:translateY(3px);box-shadow:0 1px 0 #2e7a14}
+  .btn.ghost{background:linear-gradient(#5a6b8c,#3d4a66);box-shadow:0 4px 0 #232c40}
+  #mute{position:absolute;top:10px;right:14px;pointer-events:auto;opacity:.7;font-size:22px;background:none;border:none;color:#fff;cursor:pointer;min-width:44px;min-height:44px}
   .hidden{display:none !important}
-  #banner{position:absolute;top:36%;left:0;right:0;text-align:center;font:900 30px system-ui;letter-spacing:.12em;color:#fff;text-shadow:0 0 30px #7df9ff;opacity:0;pointer-events:none;padding:0 10px}
+  #banner{position:absolute;top:34%;left:0;right:0;text-align:center;font:900 26px system-ui;letter-spacing:.1em;color:#fff;text-shadow:0 3px 0 #1a2a5a,0 0 24px #7df9ff;opacity:0;pointer-events:none;padding:0 10px}
   #banner.show{animation:bannerIn 1.6s ease forwards}
   @keyframes bannerIn{0%{opacity:0;transform:translateY(24px) scale(.94)}15%{opacity:1;transform:none}75%{opacity:1}100%{opacity:0;transform:translateY(-14px)}}
-  #weaponBtn{position:absolute;bottom:24px;right:20px;pointer-events:auto;min-width:64px;min-height:64px;border-radius:50%;border:2px solid #ff5470;background:rgba(20,10,20,.7);color:#ff8c8c;font:700 12px system-ui;letter-spacing:.05em}
-  #winScr h1{color:#7dffa8;text-shadow:0 0 28px #2f28}
+  #weaponBtn{position:absolute;bottom:24px;right:18px;pointer-events:auto;min-width:64px;min-height:64px;border-radius:12px;border:2px solid #ff5470;background:rgba(20,12,20,.75);color:#ff9c9c;font:700 11px system-ui;letter-spacing:.04em;box-shadow:0 3px 0 #00000066}
+  #winScr h1{color:#7dffa8;text-shadow:0 4px 0 #1a5a2a,0 0 26px #2f8}
 </style>
 </head>
 <body>
@@ -54,10 +54,10 @@
   <div id="banner"></div>
   <div id="menuScr" class="screen">
     <h1>LASER <span class="strike">STRIKE</span> SKIES</h1>
-    <p>Clon web del juego Roblox — vuela y deja que el láser apunte solo.<br>
-    <span class="core-note">◆ Energy Cores</span> + <span style="color:#ff6bd6">✧ Starlight</span> por misión. 3 misiones: Drones · Escolta · <b>Omega Mega-Bot</b>.</p>
-    <p style="font-size:13px;opacity:.6">WASD/flechas · en móvil: joystick táctil · Q o botón para cambiar arma</p>
-    <button class="btn" id="startBtn">DESPLEGAR</button>
+    <p>Clon web estilo Roblox — avatar blocky, vuelo en 3a persona.<br>
+    <span class="core-note">◆ Energy Cores</span> + <span style="color:#ff6bd6">✧ Starlight</span> · 3 misiones: Drones · Escolta · <b>Omega Mega-Bot</b></p>
+    <p style="font-size:12px;opacity:.65">WASD/flechas o joystick táctil · Q / botón para arma</p>
+    <button class="btn" id="startBtn">▶ PLAY</button>
   </div>
   <div id="overScr" class="screen hidden">
     <h1 style="color:#ff5470">MISIÓN FALLIDA</h1>
@@ -65,7 +65,7 @@
     <button class="btn" id="retryBtn">REINTENTAR</button>
   </div>
   <div id="winScr" class="screen hidden">
-    <h1>MISIÓN COMPLETA</h1>
+    <h1 style="color:#7dffa8">MISIÓN COMPLETA</h1>
     <p id="winScore"></p>
     <button class="btn" id="againBtn">OTRA SALIDA</button>
   </div>
@@ -74,26 +74,27 @@
 "use strict";
 /* ============================== TUNING ============================== */
 const TUNING = {
-  playerSpeed: 320, playerAccel: 2400, playerDrag: 4.5, playerR: 14,
-  laserRange: 340, fireCooldown: 0.14, laserSpeed: 900, laserR: 4,
+  playerSpeed: 260, playerAccel: 2200, playerDrag: 5, playerR: 20,
+  laserRange: 420, fireCooldown: 0.14, laserSpeed: 620, laserR: 5,
   shields: 3, invulnTime: 1.3,
-  // bestiario spec: Sentry Drone v2 (150 HP en Roblox → 1 hit web)
-  droneHP: 1, droneR: 15, droneSpeed: 70, droneBounty: 1,
-  interHP: 2, interR: 13, interSpeed: 150, interBounty: 2,
-  escortHP: 5, escortSpeed: 60, escortR: 22,
-  // Omega Mega-Bot (12000 HP/25 armor en Roblox → fase web)
-  bossHP: 30, bossR: 46, bossBounty: 10,
-  bossPhaseIdle: 0.8, bossTelegraph: 0.55, bossVuln: 2.2, bossVolley: 3,
-  wave1Count: 8, wave1SpawnEvery: 1.15,
-  wave2SpawnEvery: 0.95, wave2Interceptors: 9,
-  coreDropChance: 0.45, coreValue: 10, crystalBounty: 5, coreMagnetR: 90,
+  droneHP: 1, droneR: 22, droneSpeed: 150, droneBounty: 1,
+  interHP: 2, interR: 20, interSpeed: 210, interBounty: 2,
+  escortHP: 5, escortR: 30,
+  bossHP: 30, bossR: 70, bossBounty: 10,
+  bossPhaseIdle: 0.8, bossTelegraph: 0.55, bossVuln: 2.2,
+  wave1Count: 8, wave1SpawnEvery: 1.3,
+  wave2SpawnEvery: 1.0, wave2Interceptors: 8,
+  coreDropChance: 0.45, coreValue: 10, crystalBounty: 5, coreMagnetR: 120,
   shakeHit: 6, shakeHitPlayer: 14, shakeDeath: 20,
   particleCap: 380, bulletCap: 90, enemyCap: 60, coreCap: 40, popupCap: 24,
   masterVolume: 0.3,
+  FOV: 460,          // distancia focal de la proyección pseudo-3D
+  playerZ: 0,        // z del plano del jugador (0 = cerca)
+  spawnZ: -520,      // z donde nacen los enemigos (lejos)
 };
 /* ============================ CANVAS & DPR =========================== */
 const cv = document.getElementById("cv"), ctx = cv.getContext("2d");
-const VIEW = { w: 800, h: 480 };   // landscape default; rota a portrait en móvil vertical
+const VIEW = { w: 800, h: 480 };
 function orientView() {
   const portrait = innerHeight > innerWidth;
   VIEW.w = portrait ? 480 : 800;
@@ -193,12 +194,7 @@ function renderParticles() {
   ctx.globalAlpha = 1; ctx.globalCompositeOperation = "source-over";
 }
 /* ============================= COLLISION ============================ */
-const hitCircle = (a, b, ra, rb) => { const dx=a.x-b.x, dy=a.y-b.y, r=ra+rb; return dx*dx+dy*dy < r*r; };
-function hitSweep(a, prevX, prevY, b, ra, rb) {
-  const steps = Math.ceil(Math.hypot(a.x-prevX, a.y-prevY) / Math.max(rb, 4));
-  for (let i = 1; i <= steps; i++) { const t=i/steps, px=prevX+(a.x-prevX)*t, py=prevY+(a.y-prevY)*t, dx=px-b.x, dy=py-b.y, r=ra+rb; if (dx*dx+dy*dy<r*r) return true; }
-  return false;
-}
+function hitCircle(a, b, ra, rb) { const dx=a.sx-b.sx, dy=a.sy-b.sy, r=ra+rb; return dx*dx+dy*dy < r*r; }
 /* ============================ SCENE SYSTEM ========================== */
 const scenes = {}; let scene = null, sceneName = "";
 function setScene(name) { if (scene && scene.exit) scene.exit(); sceneName = name; scene = scenes[name]; if (scene.enter) scene.enter(); }
@@ -211,6 +207,10 @@ const enemies = pool(() => ({}), TUNING.enemyCap);
 const bossShots = pool(() => ({}), 30);
 const cores = pool(() => ({}), TUNING.coreCap);
 const popups = pool(() => ({}), TUNING.popupCap);
+const blocks = [];   // bloques del sky city (decorado 3D)
+for (let i = 0; i < 26; i++) {
+  blocks.push({ x: (rng()-0.5)*900, y: (rng()-0.5)*600, z: -rng()*900-100, w: 40+rng()*90, h: 40+rng()*90, c: ["#3d4a66","#4a5a80","#2e3a55","#5a6b8c"][i%4], d: rng() });
+}
 let best = 0;
 function banner(text) {
   const el = $("banner");
@@ -228,14 +228,14 @@ function addPopup(x, y, text, color = "#ffd166") {
   popups.spawn(p => { p.x=x; p.y=y; p.text=text; p.color=color; p.life=p.maxLife=0.9; });
 }
 function resetGame() {
-  state.px = VIEW.w/2; state.py = VIEW.h/2; state.vx = 0; state.vy = 0; state.aim = 0;
+  state.px = 0; state.py = 0; state.vx = 0; state.vy = 0; state.aim = 0;
   state.shields = TUNING.shields; state.invuln = 0;
   state.cores = 0; state.crystals = 0; state.xp = 0; state.t = 0; state.timeScale = 1;
   state.wave = 1; state.waveDone = false; state.dead = false; state.deadT = 0;
-  state.wave1Kills = 0; state.wave1SpawnT = 1.0;
+  state.wave1Kills = 0; state.wave1SpawnT = 1.2;
   state.escort = null; state.escortSpawnT = 0; state.wave2Kills = 0;
-  state.boss = null; state.bossShotT = 0; state.bossPhase = "spawn";
-  state.fireT = 0; state.weapon = 0;  // 0=Pulse Laser R1, 1=Mega-Beam
+  state.boss = null; state.bossShotT = 0;
+  state.fireT = 0; state.weapon = 0;
   lasers.clear(); enemies.clear(); bossShots.clear(); cores.clear(); particles.clear(); popups.clear();
   cam.shake = 0;
   $("waveBar").style.opacity = 0; $("bossBarWrap").style.opacity = 0; $("escortBarWrap").style.opacity = 0;
@@ -245,15 +245,22 @@ function updateWeaponBtn() {
   const btn = $("weaponBtn");
   show(btn, sceneName === "play");
   btn.style.borderColor = state.weapon === 0 ? "#ff5470" : "#00c8ff";
-  btn.style.color = state.weapon === 0 ? "#ff8c8c" : "#7df9ff";
+  btn.style.color = state.weapon === 0 ? "#ff9c9c" : "#7df9ff";
   btn.innerHTML = state.weapon === 0 ? "PULSE<br>R1" : "MEGA<br>BEAM";
 }
 function setWaveBar(text) { $("waveBar").textContent = text; $("waveBar").style.opacity = 1; }
+/* ── Proyección pseudo-3D ──────────────────────────────────────────── */
+// Proyecta un punto (x,y,z) del mundo al plano de pantalla.
+// sx, sy centrados en la pantalla; el jugador vive en z=0 (escala 1).
+function project(x, y, z) {
+  const s = TUNING.FOV / (TUNING.FOV - z);
+  return { sx: VIEW.w/2 + x * s, sy: VIEW.h*0.64 + y * s, s: s };
+}
 /* ============================ ESCENAS =============================== */
 scenes.menu = {
   enter(){ show($("menuScr"), true); show($("overScr"), false); show($("winScr"), false); show($("weaponBtn"), false); $("hud").textContent = ""; state.menuT = 0; },
   update(dt){ state.menuT += dt; },
-  render(){ drawBg(state.menuT, 0.6); },
+  render(){ renderSky(state.menuT); },
   exit(){ show($("menuScr"), false); },
 };
 scenes.play = {
@@ -280,7 +287,7 @@ scenes.gameover = {
     `◆ <b>${state.cores}</b> Energy Cores · ✧ <b>${state.crystals}</b> Starlight · mejor ◆ <b>${best}</b><br><span style="opacity:.6;font-size:13px">Cayó en la misión ${state.wave} — ${["","DESTRUIR DRONES","ESCORTAR NAVE","OMEGA MEGA-BOT"][state.wave]}</span>`;
     show($("overScr"), true); },
   update(dt){ if (input.actionPressed) setScene("play"); },
-  render(){ drawBg(state.t, 0.4); renderParticles(); },
+  render(){ renderSky(state.t); renderParticles(); },
   exit(){ show($("overScr"), false); },
 };
 scenes.win = {
@@ -288,7 +295,7 @@ scenes.win = {
     $("winScore").innerHTML = `◆ <b>${state.cores}</b> Energy Cores · ✧ <b>${state.crystals}</b> Starlight · mejor ◆ <b>${best}</b>`;
     show($("winScr"), true); },
   update(dt){ if (input.actionPressed) setScene("play"); },
-  render(){ drawBg(state.t, 0.7); renderParticles(); },
+  render(){ renderSky(state.t); renderParticles(); },
   exit(){ show($("winScr"), false); },
 };
 /* ======================== LÓGICA DE JUEGO =========================== */
@@ -300,35 +307,26 @@ function updatePlayer(dt) {
   if (sp > max) { state.vx *= max/sp; state.vy *= max/sp; }
   if (!input.axis.x) state.vx -= state.vx * Math.min(TUNING.playerDrag*dt, 1);
   if (!input.axis.y) state.vy -= state.vy * Math.min(TUNING.playerDrag*dt, 1);
-  state.px = Math.max(22, Math.min(VIEW.w-22, state.px + state.vx*dt));
-  state.py = Math.max(22, Math.min(VIEW.h-22, state.py + state.vy*dt));
-  // auto-aim
-  let tx = null, td = TUNING.laserRange;
-  const consider = (en) => { const d = Math.hypot(en.x-state.px, en.y-state.py); if (d < td) { td = d; tx = en; } };
+  state.px = Math.max(-180, Math.min(180, state.px + state.vx*dt));
+  state.py = Math.max(-160, Math.min(160, state.py + state.vy*dt));
+  // auto-aim: el enemigo más cercano (menor z → más grande en pantalla)
+  let tx = null, td = TUNING.laserRange * 4;
+  const consider = (en) => { const d = -en.z + Math.abs(en.x-state.px)*0.5 + Math.abs(en.y-state.py)*0.5; if (d < td) { td = d; tx = en; } };
   enemies.each(consider);
   if (state.boss && state.bossPhase === "vulnerable") consider(state.boss);
   state.fireT -= dt;
   if (tx && state.fireT <= 0) {
     state.fireT = TUNING.fireCooldown;
-    const a = Math.atan2(tx.y - state.py, tx.x - state.px);
-    state.aim = a;
     const color = state.weapon === 0 ? "#ff5470" : "#00c8ff";
     if (state.weapon === 0) {
-      lasers.spawn(l => { l.x=state.px+Math.cos(a)*20; l.y=state.py+Math.sin(a)*20; l.px=l.x; l.py=l.y; l.vx=Math.cos(a)*TUNING.laserSpeed; l.vy=Math.sin(a)*TUNING.laserSpeed; l.color=color; });
-      burst(state.px+Math.cos(a)*24, state.py+Math.sin(a)*24, color, 3, 90);
+      lasers.spawn(l => { l.x=state.px; l.y=state.py; l.z=state.zOff||0; l.vz=TUNING.laserSpeed; l.color=color; });
+      burst(VIEW.w/2, VIEW.h*0.64, color, 3, 90);
       beep(vary(320), 0.06, "square", 110);
     } else {
-      // Mega-Beam: rayo ancho, daño por tick (3 rayos paralelos)
       for (let i = -1; i <= 1; i++) {
-        const off = i * 6;
-        lasers.spawn(l => {
-          const ang = a;
-          l.x=state.px+Math.cos(ang)*20 + Math.cos(ang+Math.PI/2)*off;
-          l.y=state.py+Math.sin(ang)*20 + Math.sin(ang+Math.PI/2)*off;
-          l.px=l.x; l.py=l.y; l.vx=Math.cos(ang)*TUNING.laserSpeed; l.vy=Math.sin(ang)*TUNING.laserSpeed; l.color=color; l.big=true;
-        });
+        lasers.spawn(l => { l.x=state.px+i*10; l.y=state.py; l.z=0; l.vz=TUNING.laserSpeed; l.color=color; l.big=true; });
       }
-      burst(state.px+Math.cos(a)*24, state.py+Math.sin(a)*24, color, 5, 110);
+      burst(VIEW.w/2, VIEW.h*0.64, color, 5, 110);
       beep(vary(210), 0.1, "sawtooth", 80);
     }
   }
@@ -336,75 +334,73 @@ function updatePlayer(dt) {
 function updateWaves(dt) {
   if (state.wave === 1) {
     state.wave1SpawnT -= dt;
-    if (state.wave1SpawnT <= 0 && enemies.count() < 6) {
+    if (state.wave1SpawnT <= 0 && enemies.count() < 5) {
       const remaining = TUNING.wave1Count - state.wave1Kills - enemies.count();
       if (remaining > 0) {
-        state.wave1SpawnT = Math.max(0.5, TUNING.wave1SpawnEvery - state.t*0.004);
+        state.wave1SpawnT = Math.max(0.55, TUNING.wave1SpawnEvery - state.t*0.005);
         spawnDrone();
       }
     }
     if (state.wave1Kills >= TUNING.wave1Count && enemies.count() === 0) state.waveDone = true;
   } else if (state.wave === 2) {
     if (!state.escort) {
-      state.escort = { x: -40, y: VIEW.h*0.5 + (rng()-0.5)*80, hp: TUNING.escortHP, t: 0 };
+      state.escort = { x: 90, y: 0, z: -140, hp: TUNING.escortHP, t: 0 };
       $("escortBarWrap").style.opacity = 1;
       banner("MISIÓN 2 — ESCORTAR NAVE");
     }
     const esc = state.escort;
     esc.t += dt;
-    esc.x += TUNING.escortSpeed * dt;
-    esc.y += Math.sin(esc.t * 0.8) * 22 * dt;
+    esc.z += 24 * dt;            // la escolta avanza contigo
+    esc.x = 90 + Math.sin(esc.t*0.7) * 24;
     $("escortBar").style.width = (esc.hp / TUNING.escortHP * 100) + "%";
     state.escortSpawnT -= dt;
     if (state.escortSpawnT <= 0 && state.wave2Kills + enemies.count() < TUNING.wave2Interceptors) {
       state.escortSpawnT = TUNING.wave2SpawnEvery;
       spawnInterceptor();
     }
+    // interceptores atacan a la escolta
     enemies.each(en => {
-      if (en.kind === "inter") {
-        const a = Math.atan2(esc.y - en.y, esc.x - en.x);
-        en.vx = Math.cos(a) * TUNING.interSpeed; en.vy = Math.sin(a) * TUNING.interSpeed;
-        if (hitCircle(en, esc, TUNING.interR, TUNING.escortR)) {
-          en.alive = false; esc.hp--; burst(en.x, en.y, "#ff8c42", 10, 200);
+      if (en.kind === "inter" && en.target === "escort") {
+        const toEsc = { x: esc.x - en.x, y: esc.y - en.y };
+        const d = Math.hypot(toEsc.x, toEsc.y) || 1;
+        en.x += (toEsc.x/d) * TUNING.interSpeed * 0.5 * dt;
+        en.y += (toEsc.y/d) * TUNING.interSpeed * 0.5 * dt;
+        en.z += 26 * dt;
+        if (Math.abs(en.z - esc.z) < 60 && d < 60) {
+          en.alive = false; esc.hp--; burst(project(esc.x,esc.y,esc.z).sx, project(esc.x,esc.y,esc.z).sy, "#ff8c42", 10, 200);
           beep(150, 0.09, "sawtooth", 70); cam.shake = Math.max(cam.shake, TUNING.shakeHit);
-          if (esc.hp <= 0) { killPlayer("¡La escolta fue destruida!"); }
+          if (esc.hp <= 0) killPlayer("¡La escolta fue destruida!");
         }
       }
     });
-    if (esc.x > VIEW.w + 50) { state.waveDone = true; $("escortBarWrap").style.opacity = 0; }
+    if (esc.z > 160) { state.waveDone = true; $("escortBarWrap").style.opacity = 0; }
   } else if (state.wave === 3) {
     if (!state.boss) {
-      state.boss = { x: VIEW.w/2, y: VIEW.h/2, hp: TUNING.bossHP, phase: "idle", t: TUNING.bossPhaseIdle, fireT: 0 };
+      state.boss = { x: 0, y: 0, z: -460, hp: TUNING.bossHP, phase: "idle", t: TUNING.bossPhaseIdle, fireT: 0 };
       $("bossBarWrap").style.opacity = 1;
       banner("MISIÓN 3 — OMEGA MEGA-BOT");
       beep(80, 0.8, "sawtooth", 30);
     }
     const boss = state.boss;
     $("bossBar").style.width = (boss.hp / TUNING.bossHP * 100) + "%";
+    boss.z += 6 * dt;            // el boss avanza lentamente hacia ti
+    boss.x += Math.sin(state.t*0.5) * 20 * dt;
     boss.t -= dt;
     if (boss.phase === "idle") {
-      boss.x += Math.sin(state.t * 0.7) * 60 * dt;
-      boss.y += Math.cos(state.t * 0.5) * 40 * dt;
       if (boss.t <= 0) { boss.phase = "telegraph"; boss.t = TUNING.bossTelegraph; beep(240, 0.3, "sawtooth", 120); }
     } else if (boss.phase === "telegraph") {
       if (boss.t <= 0) { boss.phase = "fire"; boss.t = 0.1; }
     } else if (boss.phase === "fire") {
-      boss.t -= dt;
-      boss.fireT -= dt;
+      boss.t -= dt; boss.fireT -= dt;
       if (boss.fireT <= 0) {
-        boss.fireT = 0.28;
-        const a = Math.atan2(state.py - boss.y, state.px - boss.x);
+        boss.fireT = 0.3;
         for (let i = -1; i <= 1; i++) {
-          bossShots.spawn(s => {
-            const ang = a + i * 0.22;
-            s.x = boss.x; s.y = boss.y; s.vx = Math.cos(ang) * 190; s.vy = Math.sin(ang) * 190; s.r = 6;
-          });
+          bossShots.spawn(s => { s.x = boss.x + i*34; s.y = boss.y + i*10; s.z = boss.z; s.vz = 210; s.r = 9; });
         }
         beep(vary(180), 0.12, "square", 60);
       }
       if (boss.t <= 0) { boss.phase = "vulnerable"; boss.t = TUNING.bossVuln; }
     } else if (boss.phase === "vulnerable") {
-      boss.x += Math.sin(state.t * 0.7) * 60 * dt;
       if (boss.t <= 0) { boss.phase = "idle"; boss.t = TUNING.bossPhaseIdle; }
     }
     if (boss.hp <= 0) { state.waveDone = true; $("bossBarWrap").style.opacity = 0; }
@@ -417,21 +413,16 @@ function advanceWave() {
   else if (state.wave === 3) { setScene("win"); return; }
 }
 function spawnDrone() {
-  const side = Math.floor(rng() * 4);
-  const x = side === 0 ? -20 : side === 1 ? VIEW.w + 20 : rng() * VIEW.w;
-  const y = side === 2 ? -20 : side === 3 ? VIEW.h + 20 : rng() * VIEW.h;
   enemies.spawn(en => {
-    en.kind = "drone"; en.x = x; en.y = y; en.hp = TUNING.droneHP; en.r = TUNING.droneR;
-    en.vx = 0; en.vy = 0; en.phase = rng() * 7; en.t = 0;
+    en.kind = "drone"; en.x = (rng()-0.5)*360; en.y = (rng()-0.5)*260; en.z = TUNING.spawnZ;
+    en.hp = TUNING.droneHP; en.r = TUNING.droneR; en.phase = rng()*7; en.t = 0;
   });
 }
 function spawnInterceptor() {
-  const side = Math.floor(rng() * 4);
-  const x = side === 0 ? -20 : side === 1 ? VIEW.w + 20 : rng() * VIEW.w;
-  const y = side === 2 ? -20 : side === 3 ? VIEW.h + 20 : rng() * VIEW.h;
   enemies.spawn(en => {
-    en.kind = "inter"; en.x = x; en.y = y; en.hp = TUNING.interHP; en.r = TUNING.interR;
-    en.vx = 0; en.vy = 0; en.phase = rng() * 7; en.t = 0;
+    en.kind = "inter"; en.x = (rng()-0.5)*360; en.y = (rng()-0.5)*260; en.z = TUNING.spawnZ;
+    en.hp = TUNING.interHP; en.r = TUNING.interR; en.phase = rng()*7; en.t = 0;
+    en.target = rng() < 0.6 ? "escort" : "player";
   });
 }
 function killEnemy(en) {
@@ -439,12 +430,13 @@ function killEnemy(en) {
   state.wave === 1 ? state.wave1Kills++ : state.wave2Kills++;
   const bounty = en.kind === "drone" ? TUNING.droneBounty : TUNING.interBounty;
   state.xp += bounty * 5;
-  burst(en.x, en.y, "#ff5470", 16, 260);
+  const p = project(en.x, en.y, en.z);
+  burst(p.sx, p.sy, "#ff5470", 16, 260);
   beep(vary(150), 0.11, "sawtooth", 45); cam.shake = Math.max(cam.shake, TUNING.shakeHit);
   if (rng() < TUNING.coreDropChance) {
-    cores.spawn(c => { c.x = en.x; c.y = en.y; c.vx = (rng()-0.5)*60; c.vy = (rng()-0.5)*60; c.crystal = rng() < 0.15; });
+    cores.spawn(c => { c.x = en.x; c.y = en.y; c.z = en.z; c.vx=(rng()-0.5)*40; c.vy=(rng()-0.5)*40; c.vz=60; c.crystal = rng() < 0.15; });
   } else {
-    addPopup(en.x, en.y - 14, "+" + bounty * 5 + " XP", "#7df9ff");
+    addPopup(p.sx, p.sy - 14, "+" + bounty * 5 + " XP", "#7df9ff");
   }
   hudText();
 }
@@ -454,160 +446,289 @@ function killPlayer(reason) {
   hudText();
   if (state.shields <= 0) {
     state.dead = true; state.deadT = 0;
-    burst(state.px, state.py, "#7df9ff", 30, 380);
-    burst(state.px, state.py, "#ff5470", 22, 300);
+    burst(VIEW.w/2, VIEW.h*0.64, "#7df9ff", 30, 380);
+    burst(VIEW.w/2, VIEW.h*0.64, "#ff5470", 22, 300);
     beep(200, 0.7, "sawtooth", 40); cam.shake = TUNING.shakeDeath;
-    if (reason) addPopup(state.px, state.py - 30, reason, "#ff5470");
+    if (reason) addPopup(VIEW.w/2, VIEW.h*0.5, reason, "#ff5470");
   } else {
     state.invuln = TUNING.invulnTime;
-    burst(state.px, state.py, "#ff5470", 14, 220);
+    burst(VIEW.w/2, VIEW.h*0.64, "#ff5470", 14, 220);
     beep(260, 0.25, "sawtooth", 90); cam.shake = Math.max(cam.shake, TUNING.shakeHitPlayer);
-    if (reason) addPopup(state.px, state.py - 30, reason, "#ff5470");
+    if (reason) addPopup(VIEW.w/2, VIEW.h*0.5, reason, "#ff5470");
   }
 }
 function updateWorld(dt) {
+  // láseres: viajan hacia la profundidad (z negativo)
   lasers.each(l => {
-    l.px = l.x; l.py = l.y; l.x += l.vx * dt; l.y += l.vy * dt; l.age += dt;
-    if (l.x < -30 || l.x > VIEW.w + 30 || l.y < -30 || l.y > VIEW.h + 30) l.alive = false;
+    l.z -= l.vz * dt; l.age += dt;
+    if (l.z < -560) l.alive = false;
   });
+  // enemigos: avanzan hacia el jugador
   enemies.each(en => {
     en.t += dt;
+    const speed = en.kind === "drone" ? TUNING.droneSpeed : TUNING.interSpeed;
+    en.z += speed * dt;
     if (en.kind === "drone") {
-      const a = Math.atan2(state.py - en.y, state.px - en.x) + Math.sin(en.t * 2.4 + en.phase) * 0.6;
-      en.vx = Math.cos(a) * TUNING.droneSpeed; en.vy = Math.sin(a) * TUNING.droneSpeed;
+      en.x += Math.sin(en.t*2 + en.phase) * 30 * dt;
+      en.y += Math.cos(en.t*1.7 + en.phase) * 20 * dt;
     }
-    en.x += en.vx * dt; en.y += en.vy * dt; en.age += dt;
-    if (en.x < -40 || en.x > VIEW.w + 40 || en.y < -40 || en.y > VIEW.h + 40) en.alive = false;
+    if (en.z > 30) en.alive = false;   // pasó de largo
   });
-  bossShots.each(s => { s.x += s.vx * dt; s.y += s.vy * dt; s.age += dt;
-    if (s.x < -20 || s.x > VIEW.w+20 || s.y < -20 || s.y > VIEW.h+20) s.alive = false; });
+  // proyectiles del boss
+  bossShots.each(s => { s.z += s.vz * dt; s.age += dt; if (s.z > 30) s.alive = false; });
+  // colisiones láser → enemigos (en el plano de profundidad del enemigo)
   lasers.each(l => {
     let hit = false;
-    enemies.each(en => { if (!hit && en.alive && hitSweep(l, l.px, l.py, en, TUNING.laserR, en.r)) { hit = true; en.hp--; if (en.hp <= 0) killEnemy(en); else { burst(l.x, l.y, "#fff", 6, 140); beep(vary(220), 0.05, "square", 140); } l.alive = false; } });
-    if (!hit && state.boss && state.bossPhase === "vulnerable" && hitSweep(l, l.px, l.py, state.boss, TUNING.laserR, TUNING.bossR)) {
-      state.boss.hp -= l.big ? 2 : 1; l.alive = false;
-      burst(l.x, l.y, "#ff8c42", 10, 200); beep(vary(200), 0.07, "square", 120); cam.shake = Math.max(cam.shake, 2);
+    enemies.each(en => {
+      if (!hit && en.alive && Math.abs(l.z - en.z) < 34) {
+        const dx = l.x - en.x, dy = l.y - en.y;
+        if (dx*dx + dy*dy < (TUNING.laserR + en.r) * (TUNING.laserR + en.r)) {
+          hit = true; en.hp--;
+          if (en.hp <= 0) killEnemy(en);
+          else { const p = project(en.x,en.y,en.z); burst(p.sx,p.sy,"#fff",6,140); beep(vary(220),0.05,"square",140); }
+          l.alive = false;
+        }
+      }
+    });
+    if (!hit && state.boss && state.bossPhase === "vulnerable" && Math.abs(l.z - state.boss.z) < 60) {
+      const dx = l.x - state.boss.x, dy = l.y - state.boss.y;
+      if (dx*dx + dy*dy < (TUNING.laserR + TUNING.bossR) * (TUNING.laserR + TUNING.bossR)) {
+        state.boss.hp -= l.big ? 2 : 1; l.alive = false;
+        const p = project(state.boss.x,state.boss.y,state.boss.z);
+        burst(p.sx,p.sy,"#ff8c42",10,200); beep(vary(200),0.07,"square",120); cam.shake = Math.max(cam.shake, 2);
+      }
     }
   });
+  // enemigos/proyectiles → jugador (llegan al plano del jugador)
+  const playerScreen = { sx: VIEW.w/2, sy: VIEW.h*0.64 };
   if (!state.dead && state.invuln <= 0) {
-    enemies.each(en => { if (en.alive && hitCircle(en, {x:state.px,y:state.py}, en.r*0.85, TUNING.playerR)) { en.alive = false; killPlayer(); } });
-    bossShots.each(s => { if (s.alive && hitCircle(s, {x:state.px,y:state.py}, s.r, TUNING.playerR)) { s.alive = false; killPlayer("¡Impacto láser!"); } });
+    enemies.each(en => {
+      if (en.alive && Math.abs(en.z - TUNING.playerZ) < 30) {
+        const p = project(en.x, en.y, en.z);
+        if (hitCircle(p, playerScreen, en.r*0.8, TUNING.playerR)) { en.alive = false; killPlayer(); }
+      }
+    });
+    bossShots.each(s => {
+      if (s.alive && Math.abs(s.z - TUNING.playerZ) < 26) {
+        const p = project(s.x, s.y, s.z);
+        if (hitCircle(p, playerScreen, s.r, TUNING.playerR)) { s.alive = false; killPlayer("¡Impacto láser!"); }
+      }
+    });
   }
+  // Energy Cores: magnetizan y vienen hacia el jugador
   cores.each(c => {
     c.age += dt;
-    const d = Math.hypot(state.px - c.x, state.py - c.y);
-    if (d < TUNING.coreMagnetR) { c.vx += (state.px - c.x) * 6 * dt; c.vy += (state.py - c.y) * 6 * dt; }
-    c.x += c.vx * dt; c.y += c.vy * dt;
-    if (!state.dead && d < 26) {
+    c.z += c.vz * dt;
+    const p = project(c.x, c.y, c.z);
+    const pj = project(state.px, state.py, TUNING.playerZ);
+    const d = Math.hypot(p.sx - pj.sx, p.sy - pj.sy);
+    if (d < TUNING.coreMagnetR * Math.max(0.4, Math.min(1, -c.z/300))) {
+      c.x += (state.px - c.x) * 1.5 * dt;
+      c.y += (state.py - c.y) * 1.5 * dt;
+    }
+    if (!state.dead && Math.abs(c.z) < 24 && d < 34) {
       c.alive = false;
-      if (c.crystal) { state.crystals += TUNING.crystalBounty; addPopup(c.x, c.y - 12, "+" + TUNING.crystalBounty + " ✧", "#ff6bd6"); }
-      else { state.cores += TUNING.coreValue; addPopup(c.x, c.y - 12, "+" + TUNING.coreValue + " ◆", "#ffd166"); }
+      if (c.crystal) { state.crystals += TUNING.crystalBounty; addPopup(p.sx, p.sy-12, "+" + TUNING.crystalBounty + " ✧", "#ff6bd6"); }
+      else { state.cores += TUNING.coreValue; addPopup(p.sx, p.sy-12, "+" + TUNING.coreValue + " ◆", "#ffd166"); }
       pickupChime(); hudText();
     }
-    if (c.age > 12) c.alive = false;
+    if (c.age > 10 || c.z > 40) c.alive = false;
   });
   popups.each(p => { p.age += dt; p.life -= dt; p.y -= 40 * dt; if (p.life <= 0) p.alive = false; });
   updateParticles(dt);
   cam.shake *= 0.88;
 }
 /* ============================== RENDER ============================== */
-function drawBg(t, dim = 1) {
+function renderSky(t) {
   const g = ctx.createLinearGradient(0, 0, 0, VIEW.h);
-  g.addColorStop(0, "#0a0e1e"); g.addColorStop(1, "#131031");
+  g.addColorStop(0, "#2a3f6e"); g.addColorStop(0.5, "#1b2a4a"); g.addColorStop(1, "#0e1420");
   ctx.fillStyle = g; ctx.fillRect(0, 0, VIEW.w, VIEW.h);
-  ctx.fillStyle = "rgba(160,190,255," + (0.5*dim) + ")";
-  for (let i = 0; i < 50; i++) {
-    const x = ((i * 97.31) % VIEW.w);
-    const y = ((i * 57.17 + t * 6) % (VIEW.h + 20)) - 10;
-    ctx.fillRect(x, y, 1.6, 1.6);
-  }
-  ctx.fillStyle = "rgba(40,60,110," + (0.55*dim) + ")";
-  for (let i = 0; i < 7; i++) {
-    const w = 60 + (i * 37) % 70, h = 80 + (i * 53) % 90;
-    const x = ((i * 140 - t * 10) % (VIEW.w + 200)) - 100;
-    const y = VIEW.h - 60 - ((i * 41) % 50);
-    ctx.fillRect(x, y, w, h);
-    ctx.fillRect(x + w * 0.3, y - 16, w * 0.4, 16);
-  }
-  ctx.fillStyle = "rgba(90,120,190," + (0.35*dim) + ")";
-  for (let i = 0; i < 4; i++) {
-    const w = 120 + (i * 61) % 90;
-    const x = ((i * 260 - t * 22) % (VIEW.w + 300)) - 150;
-    const y = 60 + (i * 97) % 140;
-    ctx.fillRect(x, y, w, 8);
+  // nubes de bloques lejanas
+  ctx.fillStyle = "rgba(120,150,220,.12)";
+  for (let i = 0; i < 18; i++) {
+    const x = ((i*131 + t*4) % (VIEW.w+160)) - 80;
+    const y = ((i*73) % (VIEW.h*0.5));
+    ctx.fillRect(x, y, 50+(i%3)*30, 14);
   }
 }
-function drawShip(x, y, angle, color, r = 20, thrust = false) {
-  ctx.save(); ctx.translate(x, y); ctx.rotate(angle);
-  ctx.shadowColor = color; ctx.shadowBlur = 16;
-  ctx.fillStyle = color;
-  ctx.beginPath(); ctx.moveTo(r * 1.5, 0); ctx.lineTo(-r * 0.9, r * 0.9); ctx.lineTo(-r * 0.45, 0); ctx.lineTo(-r * 0.9, -r * 0.9); ctx.closePath(); ctx.fill();
-  if (thrust) {
-    ctx.shadowBlur = 22; ctx.fillStyle = "#9fe8ff";
-    ctx.beginPath(); ctx.moveTo(-r * 0.9, r * 0.35); ctx.lineTo(-r * 1.7, 0); ctx.lineTo(-r * 0.9, -r * 0.35); ctx.closePath(); ctx.fill();
+function drawBlock(x, y, w, h, color, alpha = 1) {
+  ctx.globalAlpha = alpha;
+  ctx.fillStyle = color; ctx.fillRect(x, y, w, h);
+  ctx.fillStyle = "rgba(255,255,255,.14)"; ctx.fillRect(x, y, w, h*0.28);  // top face
+  ctx.fillStyle = "rgba(0,0,0,.22)"; ctx.fillRect(x, y+h*0.82, w, h*0.18);  // bottom shade
+  ctx.globalAlpha = 1;
+}
+function renderBlocks() {
+  // bloques del sky city ordenados por profundidad (lejos primero)
+  const sorted = blocks.map(b => ({...b, dist: -b.z}));
+  sorted.sort((a,b) => b.dist - a.dist);
+  for (const b of sorted) {
+    const p = project(b.x, b.y, b.z);
+    const w = b.w * p.s, h = b.h * p.s;
+    if (p.sx < -w*2 || p.sx > VIEW.w + w*2) continue;
+    drawBlock(p.sx - w/2, p.sy - h/2, w, h, b.c, Math.min(1, 0.5 + 0.5*p.s));
   }
+}
+/* ── Avatar R6 blocky (estética Roblox) ───────────────────────────── */
+function drawAvatar(cx, cy, scale, suitColor, opts = {}) {
+  const s = scale;
+  ctx.save(); ctx.translate(cx, cy);
+  // jetpack (detrás del torso)
+  drawBlock(-13*s, -34*s, 26*s, 22*s, "#8a93a8", 1);
+  // llama del jetpack
+  const flick = 6 + Math.sin(state.t*22)*3;
+  ctx.fillStyle = "#ffb347"; ctx.beginPath();
+  ctx.moveTo(-10*s, -12*s); ctx.lineTo(0, -12*s - flick*s); ctx.lineTo(10*s, -12*s); ctx.closePath(); ctx.fill();
+  ctx.fillStyle = "#ffe28a"; ctx.beginPath();
+  ctx.moveTo(-6*s, -12*s); ctx.lineTo(0, -12*s - flick*s*0.6); ctx.lineTo(6*s, -12*s); ctx.closePath(); ctx.fill();
+  // torso (Flight Suit)
+  drawBlock(-16*s, -32*s, 32*s, 30*s, suitColor, 1);
+  // cinturón
+  drawBlock(-16*s, -8*s, 32*s, 6*s, "#222a3a", 1);
+  // brazos (levantados en vuelo)
+  const armLift = Math.sin(state.t*3)*0.05;
+  drawBlock(-24*s, -30*s - armLift*s*20, 8*s, 26*s, suitColor, 1);
+  drawBlock(16*s, -30*s - armLift*s*20, 8*s, 26*s, suitColor, 1);
+  // manos
+  drawBlock(-24*s, -6*s - armLift*s*20, 8*s, 6*s, "#f2c39b", 1);
+  drawBlock(16*s, -6*s - armLift*s*20, 8*s, 6*s, "#f2c39b", 1);
+  // piernas (cuelgan, ligero sway)
+  const sway = Math.sin(state.t*2)*2*s;
+  drawBlock(-10*s + sway*0.3, -2*s, 9*s, 22*s, "#2a3550", 1);
+  drawBlock(1*s - sway*0.3, -2*s, 9*s, 22*s, "#2a3550", 1);
+  // zapatos
+  drawBlock(-11*s + sway*0.3, 20*s, 11*s, 5*s, "#3d4a66", 1);
+  drawBlock(0*s - sway*0.3, 20*s, 11*s, 5*s, "#3d4a66", 1);
+  // cabeza blocky con casco
+  drawBlock(-11*s, -50*s, 22*s, 18*s, opts.helmetColor || "#f2c39b", 1);
+  // visera del casco (brillo)
+  drawBlock(-9*s, -49*s, 18*s, 7*s, opts.visorColor || "#4db8ff", 1);
+  ctx.restore();
+  // tag del jugador (estilo Roblox)
+  ctx.font = "700 " + Math.round(11*s) + "px system-ui";
+  ctx.textAlign = "center";
+  ctx.fillStyle = "#ffffffcc"; ctx.fillText("Player_1", cx, cy - 58*s);
+}
+function drawEscort(cx, cy, s) {
+  // nave aliada blocky (bloques)
+  drawBlock(cx - 16*s, cy - 8*s, 32*s, 16*s, "#4dd0ff", 1);
+  drawBlock(cx - 8*s, cy - 16*s, 16*s, 10*s, "#7df9ff", 1);
+  drawBlock(cx - 26*s, cy - 2*s, 6*s, 10*s, "#2a3550", 1);
+  drawBlock(cx + 20*s, cy - 2*s, 6*s, 10*s, "#2a3550", 1);
+  ctx.font = "700 " + Math.round(10*s) + "px system-ui";
+  ctx.textAlign = "center"; ctx.fillStyle = "#7df9ffaa";
+  ctx.fillText("TRANSPORTE", cx, cy - 22*s);
+}
+function drawDrone(en) {
+  const p = project(en.x, en.y, en.z);
+  const s = en.r / 22 * Math.min(2.2, p.s);
+  ctx.save(); ctx.translate(p.sx, p.sy);
+  // cuerpo blocky rojo
+  drawBlock(-12*s, -8*s, 24*s, 18*s, "#d43d3d", 1);
+  // núcleo brillante
+  ctx.fillStyle = "#ff8c8c"; ctx.beginPath(); ctx.arc(0, 1*s, 5*s, 0, 7); ctx.fill();
+  // alas laterales
+  drawBlock(-18*s, -4*s, 6*s, 12*s, "#8a2a2a", 1);
+  drawBlock(12*s, -4*s, 6*s, 12*s, "#8a2a2a", 1);
+  ctx.restore();
+  // propulsor
+  ctx.fillStyle = "#ffb347"; ctx.globalAlpha = 0.8;
+  ctx.beginPath(); ctx.arc(p.sx, p.sy + 14*s, 3*s, 0, 7); ctx.fill(); ctx.globalAlpha = 1;
+}
+function drawInterceptor(en) {
+  const p = project(en.x, en.y, en.z);
+  const s = en.r / 20 * Math.min(2.2, p.s);
+  ctx.save(); ctx.translate(p.sx, p.sy);
+  drawBlock(-14*s, -7*s, 28*s, 14*s, "#ff8c42", 1);
+  drawBlock(-8*s, -14*s, 16*s, 8*s, "#ffb347", 1);
   ctx.restore();
 }
+function drawBoss(boss) {
+  const p = project(boss.x, boss.y, boss.z);
+  const s = Math.min(2.6, p.s);
+  const vulnerable = boss.phase === "vulnerable";
+  const telegraphing = boss.phase === "telegraph";
+  ctx.save(); ctx.translate(p.sx, p.sy);
+  // piernas del mech
+  drawBlock(-30*s, 34*s, 18*s, 34*s, "#5a2430", 1);
+  drawBlock(12*s, 34*s, 18*s, 34*s, "#5a2430", 1);
+  // torso gigante
+  drawBlock(-36*s, -26*s, 72*s, 62*s, vulnerable ? "#ffd166" : "#b03050", 1);
+  // placas de armadura
+  drawBlock(-30*s, -20*s, 60*s, 12*s, "#d04555", 1);
+  drawBlock(-26*s, -2*s, 52*s, 10*s, "#d04555", 1);
+  // hombros
+  drawBlock(-44*s, -30*s, 16*s, 20*s, "#7a1e30", 1);
+  drawBlock(28*s, -30*s, 16*s, 20*s, "#7a1e30", 1);
+  // brazos con cañones
+  drawBlock(-46*s, -10*s, 12*s, 30*s, "#8a2a3a", 1);
+  drawBlock(34*s, -10*s, 12*s, 30*s, "#8a2a3a", 1);
+  // cabeza
+  drawBlock(-14*s, -42*s, 28*s, 16*s, "#5a2430", 1);
+  // ojo central (telegrafía: brilla al cargar)
+  ctx.fillStyle = telegraphing ? "#fff" : "#ff5470";
+  ctx.shadowColor = telegraphing ? "#fff" : "#ff5470"; ctx.shadowBlur = telegraphing ? 30*s : 14*s;
+  ctx.beginPath(); ctx.arc(0, 0, telegraphing ? 9*s : 7*s, 0, 7); ctx.fill();
+  ctx.shadowBlur = 0;
+  ctx.restore();
+  // barra de nombre (estilo Roblox)
+  ctx.font = "700 " + Math.round(12*s) + "px system-ui";
+  ctx.textAlign = "center";
+  ctx.fillStyle = vulnerable ? "#ffd166" : "#ff8c8c";
+  ctx.fillText("OMEGA MEGA-BOT", p.sx, p.sy - 58*s);
+}
 function renderWorld() {
-  drawBg(state.t);
+  renderSky(state.t);
   ctx.save();
   ctx.translate((rng()-0.5)*cam.shake, (rng()-0.5)*cam.shake);
+  renderBlocks();
+  // escolta
   if (state.escort) {
-    drawShip(state.escort.x, state.escort.y, 0, "#4dd0ff", TUNING.escortR);
-    ctx.shadowColor = "#4dd0ff"; ctx.shadowBlur = 8; ctx.strokeStyle = "#4dd0ffaa"; ctx.lineWidth = 1.5;
-    ctx.strokeRect(state.escort.x - 34, state.escort.y - 30, 68, 60); ctx.shadowBlur = 0;
+    const p = project(state.escort.x, state.escort.y, state.escort.z);
+    drawEscort(p.sx, p.sy, Math.min(2, p.s));
   }
-  if (state.boss) {
-    const b = state.boss;
-    const vulnerable = b.phase === "vulnerable";
-    const telegraphing = b.phase === "telegraph";
-    ctx.save(); ctx.translate(b.x, b.y); ctx.rotate(state.t * 0.4);
-    ctx.shadowColor = vulnerable ? "#ffd166" : "#ff5470"; ctx.shadowBlur = telegraphing ? 34 : 20;
-    ctx.strokeStyle = vulnerable ? "#ffd166" : "#ff5470"; ctx.lineWidth = 4;
-    ctx.fillStyle = vulnerable ? "#ffd16622" : "#ff547022";
-    ctx.beginPath();
-    for (let i = 0; i < 8; i++) { const a = i * Math.PI / 4, rr = TUNING.bossR + (vulnerable ? 4 : Math.sin(state.t * 3 + i) * 3); ctx.lineTo(Math.cos(a) * rr, Math.sin(a) * rr); }
-    ctx.closePath(); ctx.fill(); ctx.stroke();
-    ctx.shadowBlur = 0;
-    ctx.fillStyle = telegraphing ? "#fff" : "#ff5470";
-    ctx.shadowColor = telegraphing ? "#fff" : "#ff5470"; ctx.shadowBlur = telegraphing ? 26 : 10;
-    ctx.beginPath(); ctx.arc(0, 0, telegraphing ? 12 : 9, 0, 7); ctx.fill(); ctx.shadowBlur = 0;
-    ctx.restore();
-  }
-  ctx.shadowColor = "#ff5470"; ctx.shadowBlur = 10; ctx.fillStyle = "#ff8c8c";
-  bossShots.each(s => { ctx.beginPath(); ctx.arc(s.x, s.y, s.r, 0, 7); ctx.fill(); });
-  enemies.each(en => {
-    if (en.kind === "drone") {
-      ctx.save(); ctx.translate(en.x, en.y); ctx.rotate(en.t * 3 + en.phase);
-      ctx.shadowColor = "#ff5470"; ctx.shadowBlur = 12; ctx.strokeStyle = "#ff5470"; ctx.lineWidth = 2.5;
-      ctx.strokeRect(-en.r, -en.r, en.r * 2, en.r * 2);
-      ctx.fillStyle = "#ff5470aa"; ctx.fillRect(-3, -3, 6, 6);
-      ctx.restore();
-    } else {
-      drawShip(en.x, en.y, Math.atan2(en.vy, en.vx), "#ff8c42", en.r);
-    }
+  // boss
+  if (state.boss) drawBoss(state.boss);
+  // proyectiles del boss
+  bossShots.each(s => {
+    const p = project(s.x, s.y, s.z);
+    ctx.shadowColor = "#ff5470"; ctx.shadowBlur = 12*p.s;
+    ctx.fillStyle = "#ff8c8c";
+    ctx.beginPath(); ctx.arc(p.sx, p.sy, s.r*p.s, 0, 7); ctx.fill();
   });
+  // enemigos
+  enemies.each(en => { if (en.kind === "drone") drawDrone(en); else drawInterceptor(en); });
+  // láseres (líneas hacia la profundidad)
   lasers.each(l => {
-    ctx.shadowColor = l.color; ctx.shadowBlur = l.big ? 20 : 14;
-    ctx.strokeStyle = l.color; ctx.lineWidth = l.big ? 5 : 3;
-    ctx.beginPath(); ctx.moveTo(l.px, l.py); ctx.lineTo(l.x, l.y); ctx.stroke();
+    const p0 = project(l.x, l.y, l.z);
+    const p1 = project(l.x, l.y, Math.max(l.z - 60, -600));
+    ctx.strokeStyle = l.color; ctx.lineWidth = (l.big ? 5 : 3) * Math.max(0.5, p0.s);
+    ctx.shadowColor = l.color; ctx.shadowBlur = (l.big ? 20 : 12) * p0.s;
+    ctx.beginPath(); ctx.moveTo(p0.sx, p0.sy); ctx.lineTo(p1.sx, p1.sy); ctx.stroke();
   });
+  ctx.shadowBlur = 0;
+  // cores
   cores.each(c => {
-    const pulse = 0.7 + Math.sin(c.age * 8) * 0.3;
-    ctx.save(); ctx.translate(c.x, c.y); ctx.rotate(Math.PI / 4);
-    ctx.shadowColor = c.crystal ? "#ff6bd6" : "#ffd166"; ctx.shadowBlur = 12 * pulse;
+    const p = project(c.x, c.y, c.z);
+    const pulse = 0.7 + Math.sin(c.age*8)*0.3;
+    ctx.save(); ctx.translate(p.sx, p.sy); ctx.rotate(Math.PI/4);
+    ctx.shadowColor = c.crystal ? "#ff6bd6" : "#ffd166"; ctx.shadowBlur = 14 * pulse * p.s;
     ctx.fillStyle = c.crystal ? "#ff6bd6" : "#ffd166";
-    ctx.fillRect(-7 * pulse, -7 * pulse, 14 * pulse, 14 * pulse);
+    const sz = 7 * pulse * p.s;
+    ctx.fillRect(-sz, -sz, sz*2, sz*2);
     ctx.restore();
   });
-  if (!state.dead && (state.invuln <= 0 || Math.floor(state.t * 14) % 2 === 0)) {
-    drawShip(state.px, state.py, state.aim, state.weapon === 0 ? "#7df9ff" : "#00c8ff", 20, true);
-    ctx.shadowColor = state.weapon === 0 ? "#7df9ff" : "#00c8ff"; ctx.shadowBlur = 22;
-    ctx.beginPath(); ctx.arc(state.px, state.py, 30 + Math.sin(state.t * 6) * 3, 0, 7);
-    ctx.strokeStyle = "rgba(125,249,255,.25)"; ctx.lineWidth = 1.5; ctx.stroke(); ctx.shadowBlur = 0;
+  // jugador (avatar R6 blocky, con blink de invulnerabilidad)
+  const pcx = VIEW.w/2, pcy = VIEW.h*0.64;
+  if (!state.dead && (state.invuln <= 0 || Math.floor(state.t*14)%2 === 0)) {
+    drawAvatar(pcx, pcy, 1.25, state.weapon === 0 ? "#2a6fd6" : "#1f8fa8", {
+      helmetColor: "#f2c39b",
+      visorColor: state.weapon === 0 ? "#4db8ff" : "#00c8ff",
+    });
   }
+  // popups
   popups.each(p => {
-    ctx.globalAlpha = Math.max(0, p.life / p.maxLife);
+    ctx.globalAlpha = Math.max(0, p.life/p.maxLife);
     ctx.fillStyle = p.color; ctx.font = "800 15px system-ui"; ctx.textAlign = "center";
     ctx.fillText(p.text, p.x, p.y);
     ctx.globalAlpha = 1;
@@ -636,7 +757,7 @@ function frame(now) {
   if (paused && sceneName === "play") {
     ctx.fillStyle = "rgba(0,0,0,.5)"; ctx.fillRect(0, 0, VIEW.w, VIEW.h);
     ctx.fillStyle = "#fff"; ctx.font = "700 26px system-ui"; ctx.textAlign = "center";
-    ctx.fillText("PAUSADO — toca para reanudar", VIEW.w / 2, VIEW.h / 2);
+    ctx.fillText("PAUSADO — toca para reanudar", VIEW.w/2, VIEW.h/2);
   }
 }
 setScene("menu"); requestAnimationFrame(frame);
