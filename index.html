@@ -1,15 +1,17 @@
 <!DOCTYPE html>
-<!-- Laser Strike Skies — clon web 3D del juego Roblox (three.js r128).
-     REAL 3D: mundo de bloques, avatar R6 blocky en 3a persona, cámara
-     siguiendo en espacio 3D, enemigos y Mega-Bot como construcciones de
-     cajas 3D. Core verb: volar + láser auto-aim. 3 misiones del spec:
-     DESTRUIR DRONES → ESCORTAR NAVE → OMEGA MEGA-BOT. Armas: Pulse R1 /
-     Mega-Beam. Monedas: Energy Cores + Starlight. Mobile-first. -->
+<!-- Laser Strike Skies — 3D web, vuelo estilo ELYTRA de Minecraft.
+     Física de planeo: gravedad constante, la velocidad se curva hacia la
+     dirección de la nariz (pitch/roll). Nariz abajo = aceleras, pierdes
+     altitud. Nariz arriba = ganas altitud, pierdes velocidad hasta caer.
+     Mundo abierto navegable (Sky City de bloques, kill-plane con
+     recuperación), enemigos que PERSIGUEN en 3D, escolta que te sigue,
+     Omega Mega-Bot anclado con fases. Armas Pulse R1 / Mega-Beam.
+     three.js r128, mobile-first, cero allocs por frame. -->
 <html lang="es">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<title>Laser Strike Skies — 3D Web Demo</title>
+<title>Laser Strike Skies — Elytra Flight</title>
 <style>
   html,body{margin:0;height:100%;background:#0e1420;overflow:hidden;font-family:system-ui,sans-serif}
   #wrap{position:fixed;inset:0}
@@ -20,6 +22,7 @@
   #hud .cryst{color:#ff6bd6;font-size:13px}
   #hud .xp{color:#7df9ff;font-size:12px;opacity:.9}
   #hud .shields{font-size:13px;letter-spacing:2px}
+  #hud .spd{color:#9fe8ff;font-size:12px}
   #waveBar{position:absolute;top:10px;left:50%;transform:translateX(-50%);text-align:center;font:800 13px system-ui;letter-spacing:.14em;color:#9fe8ff;text-shadow:0 0 14px #0ff8;opacity:0;transition:opacity .3s;white-space:nowrap}
   #bossBarWrap{position:absolute;top:44px;left:50%;transform:translateX(-50%);width:min(320px,54vw);height:9px;background:#241a30;border:1px solid #ff5470aa;border-radius:5px;opacity:0;transition:opacity .3s}
   #bossBar{height:100%;width:100%;background:linear-gradient(90deg,#ff5470,#ff8c42);border-radius:5px;transition:width .15s}
@@ -40,6 +43,8 @@
   @keyframes bannerIn{0%{opacity:0;transform:translateY(24px) scale(.94)}15%{opacity:1;transform:none}75%{opacity:1}100%{opacity:0;transform:translateY(-14px)}}
   #weaponBtn{position:absolute;bottom:24px;right:18px;pointer-events:auto;min-width:64px;min-height:64px;border-radius:12px;border:2px solid #ff5470;background:rgba(20,12,20,.75);color:#ff9c9c;font:700 11px system-ui;letter-spacing:.04em;box-shadow:0 3px 0 #00000066}
   #winScr h1{color:#7dffa8;text-shadow:0 4px 0 #1a5a2a,0 0 26px #2f8}
+  #altBarWrap{position:absolute;top:44px;right:14px;width:8px;height:120px;background:#241a30;border:1px solid #7df9ff44;border-radius:4px;opacity:0;transition:opacity .3s}
+  #altBar{position:absolute;bottom:0;width:100%;background:linear-gradient(#7df9ff,#4dd0ff);border-radius:4px}
 </style>
 </head>
 <body>
@@ -49,14 +54,15 @@
   <div id="waveBar"></div>
   <div id="escortBarWrap"><div id="escortBar"></div></div>
   <div id="bossBarWrap"><div id="bossBar"></div></div>
+  <div id="altBarWrap"><div id="altBar" style="height:50%"></div></div>
   <button id="mute" aria-label="mute">🔊</button>
   <button id="weaponBtn" class="hidden">PULSE<br>R1</button>
   <div id="banner"></div>
   <div id="menuScr" class="screen">
     <h1>LASER <span class="strike">STRIKE</span> SKIES</h1>
-    <p>3D real estilo Roblox — avatar blocky, vuelo libre en tercera persona.<br>
-    <span class="core-note">◆ Energy Cores</span> + <span style="color:#ff6bd6">✧ Starlight</span> · 3 misiones: Drones · Escolta · <b>Omega Mega-Bot</b></p>
-    <p style="font-size:12px;opacity:.65">WASD/flechas o joystick táctil · Q / botón para arma</p>
+    <p>Vuelo estilo <b>elytra</b> — planea entre la Sky City y deja que el láser apunte solo.<br>
+    <span style="color:#7df9ff">▲▼</span> nariz arriba/abajo (pierde/gana velocidad) · <span style="color:#7df9ff">◀▶</span> giro · <b>ESPACIO/▲</b> impulso</p>
+    <p style="font-size:12px;opacity:.65">WASD/flechas o joystick táctil · Q / botón para arma · no toques los bloques</p>
     <button class="btn" id="startBtn">▶ PLAY</button>
   </div>
   <div id="overScr" class="screen hidden">
@@ -75,21 +81,36 @@
 "use strict";
 /* ============================== TUNING ============================== */
 const TUNING = {
-  playerSpeed: 55, playerAccel: 400, playerDrag: 5, playerR: 2.6,
-  laserRange: 160, fireCooldown: 0.14, laserSpeed: 160, laserR: 0.7,
+  // ── Física de planeo (elytra-style) ─────────────────────────────
+  gravity: 18,            // u/s² — MC usa ~5 vs velocidad 50; 18/38 ≈ ese ratio
+  drag: 0.55,             // /s — resistencia aerodinámica (alinea vel→nariz)
+  cruiseSpeed: 38,        // velocidad de planeo estable en recto
+  maxDiveSpeed: 85,       // terminal en picada (nariz abajo)
+  minStallSpeed: 12,      // bajo esto: colapso, caída libre
+  turnRate: 4.5,          // /s — qué rápido la velocidad sigue a la nariz
+  pitchRate: 2.6,         // /s — velocidad de pitch (nariz arriba/abajo)
+  rollRate: 3.0,          // /s — velocidad de roll (giro lateral)
+  boostImpulse: 14,       // impulso instantáneo (Space) en dirección de nariz
+  boostCooldown: 1.4,     // s entre impulsos
+  spawnAltitude: 70,      // altitud de inicio/recuperación
+  killPlaneY: -70,        // bajo esto: recuperación con daño (nunca softlock)
+  spawnClearRadius: 70,   // bloques a esta distancia del spawn se recolocan
+  playerR: 2.6,
+  // ── Combate ────────────────────────────────────────────────────
+  laserRange: 190, fireCooldown: 0.14, laserSpeed: 165, laserR: 0.7,
   shields: 3, invulnTime: 1.3,
-  droneHP: 1, droneR: 3.2, droneSpeed: 34, droneBounty: 1,
-  interHP: 2, interR: 3, interSpeed: 48, interBounty: 2,
+  droneHP: 1, droneR: 3.2, droneSpeed: 30, droneBounty: 1,
+  interHP: 2, interR: 3, interSpeed: 44, interBounty: 2,
   escortHP: 5, escortR: 4,
   bossHP: 30, bossR: 10, bossBounty: 10,
   bossPhaseIdle: 0.8, bossTelegraph: 0.55, bossVuln: 2.2,
-  wave1Count: 8, wave1SpawnEvery: 1.3,
-  wave2SpawnEvery: 1.0, wave2Interceptors: 8,
-  coreDropChance: 0.45, coreValue: 10, crystalBounty: 5, coreMagnetR: 22,
-  laserCap: 90, enemyCap: 60, coreCap: 40, blockCap: 40,
+  wave1Count: 8, wave1SpawnEvery: 1.6,
+  wave2SpawnEvery: 1.2, wave2Interceptors: 8,
+  coreDropChance: 0.45, coreValue: 10, crystalBounty: 5, coreMagnetR: 24,
+  laserCap: 90, enemyCap: 60, coreCap: 40, blockCap: 46,
   masterVolume: 0.3,
-  spawnZ: -320,
-  camOffset: new THREE.Vector3(0, 9, 20),
+  enemySpawnRadius: 110,   // radio de aparición de enemigos alrededor del jugador
+  camOffset: new THREE.Vector3(0, 8, 22),
 };
 /* ============================ RENDERER 3D =========================== */
 const wrap = document.getElementById("wrap");
@@ -99,18 +120,13 @@ renderer.setSize(innerWidth, innerHeight);
 renderer.shadowMap.enabled = true;
 wrap.appendChild(renderer.domElement);
 const world3d = new THREE.Scene();
-world3d.fog = new THREE.Fog(0x1b2a4a, 140, 420);
-const camera = new THREE.PerspectiveCamera(70, innerWidth / innerHeight, 0.1, 800);
-camera.position.set(0, 9, 20);
+world3d.fog = new THREE.Fog(0x1b2a4a, 160, 460);
+const camera = new THREE.PerspectiveCamera(72, innerWidth / innerHeight, 0.1, 900);
 world3d.add(new THREE.AmbientLight(0x8899cc, 0.65));
 const dirLight = new THREE.DirectionalLight(0xffffff, 1.0);
 dirLight.position.set(30, 60, 40);
 world3d.add(dirLight);
-function resize3d() {
-  camera.aspect = innerWidth / innerHeight;
-  camera.updateProjectionMatrix();
-  renderer.setSize(innerWidth, innerHeight);
-}
+function resize3d() { camera.aspect = innerWidth / innerHeight; camera.updateProjectionMatrix(); renderer.setSize(innerWidth, innerHeight); }
 addEventListener("resize", resize3d); addEventListener("orientationchange", resize3d);
 /* ============================ SEEDED RNG =========================== */
 let rngState = 20260802;
@@ -164,9 +180,6 @@ function pollInput() {
   input.axis.x = x; input.axis.y = y;
 }
 /* =============================== POOL =============================== */
-// Pools 3D: cada item ES un THREE.Group visible=false, añadido a world3d
-// al crearlo. spawn() = visible + reset; despawn = visible=false. Sin
-// allocations en el loop (sin GC hitches).
 function pool(factory, cap) {
   const items = [];
   return {
@@ -191,6 +204,8 @@ const MAT = {
   jetpack: new THREE.MeshLambertMaterial({ color: 0x8a93a8 }),
   flame: new THREE.MeshBasicMaterial({ color: 0xffb347 }),
   flameIn: new THREE.MeshBasicMaterial({ color: 0xffe28a }),
+  wing: new THREE.MeshLambertMaterial({ color: 0x7df9ff }),
+  wingDark: new THREE.MeshLambertMaterial({ color: 0x2a5a6a }),
   drone: new THREE.MeshLambertMaterial({ color: 0xd43d3d }),
   droneDark: new THREE.MeshLambertMaterial({ color: 0x8a2a2a }),
   droneCore: new THREE.MeshBasicMaterial({ color: 0xff8c8c }),
@@ -211,7 +226,7 @@ const MAT = {
   block: new THREE.MeshLambertMaterial({ color: 0x3d4a66 }),
   blockEdge: new THREE.MeshBasicMaterial({ color: 0x5a6b8c }),
 };
-/* ── Builders blocky (R6, estilo Roblox) ──────────────────────────── */
+/* ── Builders blocky (R6 + ALAS de elytra) ────────────────────────── */
 function box(w, h, d, mat) {
   const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
   m.castShadow = true;
@@ -219,6 +234,11 @@ function box(w, h, d, mat) {
 }
 function buildAvatar() {
   const g = new THREE.Group();
+  // alas de elytra desplegadas (abiertas en vuelo)
+  const wingL = box(5.0, 0.5, 2.2, MAT.wing); wingL.position.set(-3.2, -0.2, 0.4); wingL.rotation.z = 0.5; g.add(wingL);
+  const wingR = box(5.0, 0.5, 2.2, MAT.wing); wingR.position.set(3.2, -0.2, 0.4); wingR.rotation.z = -0.5; g.add(wingR);
+  const wingEdgeL = box(5.2, 0.2, 0.3, MAT.wingDark); wingEdgeL.position.set(-3.2, -0.45, 0.4); wingEdgeL.rotation.z = 0.5; g.add(wingEdgeL);
+  const wingEdgeR = box(5.2, 0.2, 0.3, MAT.wingDark); wingEdgeR.position.set(3.2, -0.45, 0.4); wingEdgeR.rotation.z = -0.5; g.add(wingEdgeR);
   const jet = box(2.2, 2.6, 1.4, MAT.jetpack); jet.position.set(0, -0.6, 1.2); g.add(jet);
   const torso = box(3.4, 3.2, 1.8, MAT.player); torso.position.set(0, -1.4, 0); g.add(torso);
   const belt = box(3.5, 0.6, 1.9, MAT.suitDark); belt.position.set(0, -3.0, 0); g.add(belt);
@@ -234,7 +254,7 @@ function buildAvatar() {
   const visor = box(2.0, 0.8, 0.2, MAT.visor); visor.position.set(0, 0.8, 1.25); g.add(visor);
   const flame = box(1.6, 1.0, 0.8, MAT.flame); flame.position.set(0, -0.4, 2.2); g.add(flame);
   const flameIn = box(0.8, 0.5, 0.6, MAT.flameIn); flameIn.position.set(0, -0.4, 2.4); g.add(flameIn);
-  g.userData = { flame, flameIn, armL, armR, legL, legR };
+  g.userData = { flame, flameIn, armL, armR, legL, legR, wingL, wingR };
   return g;
 }
 function buildDrone() {
@@ -243,8 +263,6 @@ function buildDrone() {
   const core = box(1.2, 1.2, 1.2, MAT.droneCore); core.position.set(0, 0, 1.3); g.add(core);
   const wL = box(0.8, 1.6, 2.0, MAT.droneDark); wL.position.set(-2.2, 0, 0); g.add(wL);
   const wR = box(0.8, 1.6, 2.0, MAT.droneDark); wR.position.set(2.2, 0, 0); g.add(wR);
-  const prop = box(0.6, 0.6, 0.6, MAT.flame); prop.position.set(0, -1.6, 0); g.add(prop);
-  g.userData = { prop };
   return g;
 }
 function buildInterceptor() {
@@ -292,11 +310,9 @@ function buildCore(crystal) {
   g.add(m);
   return g;
 }
-/* ── InstancedMesh para el decorado de bloques ─────────────────────
-   Perf budget: 40 bloques × 2 meshes = 80 draw calls habría excedido el
-   target (<100). InstancedMesh lo reduce a 2 draw calls totales. */
+/* ── InstancedMesh para el decorado de bloques (2 draw calls) ──────── */
 const _instBodyGeo = new THREE.BoxGeometry(1, 1, 1);
-const _instEdgeGeo = new THREE.BoxGeometry(1.02, 1.02, 1.02);
+const _instEdgeGeo = new THREE.BoxGeometry(1.04, 1.04, 1.04);
 const instBody = new THREE.InstancedMesh(_instBodyGeo, MAT.block, TUNING.blockCap);
 const instEdge = new THREE.InstancedMesh(_instEdgeGeo, MAT.blockEdge, TUNING.blockCap);
 instBody.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
@@ -326,18 +342,24 @@ function setScene(name) { if (scene && scene.exit) scene.exit(); sceneName = nam
 const $ = id => document.getElementById(id);
 const show = (el, on) => el.classList.toggle("hidden", !on);
 /* ======================= ESTADO DEL JUEGO =========================== */
-// Estado con defaults: render3d corre también en el menú, donde
-// resetGame aún no se ejecutó (lookAt con undefined crashea three.js).
 const state = {
-  px: 0, py: 0, pz: 0, vx: 0, vy: 0, t: 0, timeScale: 1, menuT: 0,
+  px: 0, py: TUNING.spawnAltitude, pz: 0, t: 0, timeScale: 1, menuT: 0,
   shields: TUNING.shields, invuln: 0, cores: 0, crystals: 0, xp: 0,
   wave: 1, waveDone: false, dead: false, deadT: 0, wave1Kills: 0,
-  wave1SpawnT: 1.2, escort: null, escortSpawnT: 0, wave2Kills: 0,
-  boss: null, bossShotT: 0, fireT: 0, weapon: 0, aim: 0,
+  wave1SpawnT: 1.6, escort: null, escortSpawnT: 0, wave2Kills: 0,
+  boss: null, bossShotT: 0, fireT: 0, weapon: 0, boostT: 0, speed: 0, stalled: false,
 };
 const player = buildAvatar();
-player.position.set(0, 0, 0);
 world3d.add(player);
+const playerVel = new THREE.Vector3(0, 0, TUNING.cruiseSpeed);
+let playerPitch = -0.15;   // rad: ligera picada inicial para ganar velocidad
+let playerRoll = 0;
+const _fwd = new THREE.Vector3();
+const _right = new THREE.Vector3();
+const _up = new THREE.Vector3(0, 1, 0);
+const _nose = new THREE.Vector3();   // scratch para noseVector (NUNCA playerVel)
+const _tmpA = new THREE.Vector3();
+const _tmpB = new THREE.Vector3();
 function laserFactory() { const g = buildLaser(MAT.laserPulse); g.visible = false; world3d.add(g); return g; }
 function enemyFactory() { const g = buildDrone(); g.visible = false; world3d.add(g); return g; }
 function bossShotFactory() { const g = buildLaser(MAT.bossEye); g.visible = false; world3d.add(g); return g; }
@@ -359,6 +381,7 @@ function hudText() {
   $("hud").innerHTML =
     `<div class="core">◆ ${state.cores} <span class="cryst">✧ ${state.crystals}</span></div>` +
     `<div class="xp">XP ${state.xp} · NVL ${Math.floor(state.xp/10)+1}</div>` +
+    `<div class="spd">${Math.round(state.speed)} u/s${state.stalled ? " · ¡STALL!" : ""}</div>` +
     `<div class="shields">${shields}</div>`;
 }
 const popupPool = [];
@@ -366,23 +389,24 @@ function addPopup3D(pos, text, color) {
   popupPool.push({ x: pos.x, y: pos.y + 4, z: pos.z, text, color, life: 0.9 });
 }
 function resetGame() {
-  player.position.set(0, 0, 0);
-  player.rotation.set(0, 0, 0);
-  state.px = 0; state.py = 0; state.vx = 0; state.vy = 0;
+  state.px = 0; state.py = TUNING.spawnAltitude; state.pz = 0;
+  playerVel.set(0, 0, -TUNING.cruiseSpeed);   // three.js: -z es "adelante"
+  playerPitch = -0.15; playerRoll = 0;
   state.shields = TUNING.shields; state.invuln = 0;
   state.cores = 0; state.crystals = 0; state.xp = 0; state.t = 0; state.timeScale = 1;
   state.wave = 1; state.waveDone = false; state.dead = false; state.deadT = 0;
-  state.wave1Kills = 0; state.wave1SpawnT = 1.2;
+  state.wave1Kills = 0; state.wave1SpawnT = 1.6;
   state.escort = null; state.escortSpawnT = 0; state.wave2Kills = 0;
   state.boss = null; state.bossShotT = 0;
-  state.fireT = 0; state.weapon = 0;
+  state.fireT = 0; state.weapon = 0; state.boostT = 0; state.speed = 0; state.stalled = false;
   lasers.clear(); enemies.clear(); bossShots.clear(); cores.clear();
   if (escortMesh) { world3d.remove(escortMesh); escortMesh = null; }
   if (bossMesh) { world3d.remove(bossMesh); bossMesh = null; }
   popupPool.length = 0;
-  camera.position.set(0, 9, 20);
-  $("waveBar").style.opacity = 0; $("bossBarWrap").style.opacity = 0; $("escortBarWrap").style.opacity = 0;
+  $("waveBar").style.opacity = 0; $("bossBarWrap").style.opacity = 0; $("escortBarWrap").style.opacity = 0; $("altBarWrap").style.opacity = 1;
   updateWeaponBtn();
+  updateAltBar();
+  hudText();
 }
 function updateWeaponBtn() {
   const btn = $("weaponBtn");
@@ -391,10 +415,14 @@ function updateWeaponBtn() {
   btn.style.color = state.weapon === 0 ? "#ff9c9c" : "#7df9ff";
   btn.innerHTML = state.weapon === 0 ? "PULSE<br>R1" : "MEGA<br>BEAM";
 }
+function updateAltBar() {
+  const frac = Math.max(0, Math.min(1, (state.py + 70) / (TUNING.spawnAltitude + 90)));
+  $("altBar").style.height = Math.round(frac * 100) + "%";
+}
 function setWaveBar(text) { $("waveBar").textContent = text; $("waveBar").style.opacity = 1; }
 /* ============================ ESCENAS =============================== */
 scenes.menu = {
-  enter(){ show($("menuScr"), true); show($("overScr"), false); show($("winScr"), false); show($("weaponBtn"), false); $("hud").textContent = ""; state.menuT = 0; },
+  enter(){ show($("menuScr"), true); show($("overScr"), false); show($("winScr"), false); show($("weaponBtn"), false); $("altBarWrap").style.opacity = 0; $("hud").textContent = ""; state.menuT = 0; },
   update(dt){ state.menuT += dt; },
   render(){ render3d(); },
   exit(){ show($("menuScr"), false); },
@@ -414,6 +442,7 @@ scenes.play = {
     updatePlayer(dt);
     updateWaves(dt);
     updateWorld(dt);
+    updateAltBar();
     if (state.waveDone) advanceWave();
   },
   render(){ render3d(); },
@@ -434,36 +463,92 @@ scenes.win = {
   render(){ render3d(); },
   exit(){ show($("winScr"), false); },
 };
-/* ======================== LÓGICA DE JUEGO =========================== */
+/* ==================== FÍSICA ELYTRA (Minecraft-style) =============== */
 function updatePlayer(dt) {
   if (state.invuln > 0) state.invuln -= dt;
-  state.vx += input.axis.x * TUNING.playerAccel * dt;
-  state.vy += input.axis.y * TUNING.playerAccel * dt;
-  const sp = Math.hypot(state.vx, state.vy), max = TUNING.playerSpeed;
-  if (sp > max) { state.vx *= max/sp; state.vy *= max/sp; }
-  if (!input.axis.x) state.vx -= state.vx * Math.min(TUNING.playerDrag*dt, 1);
-  if (!input.axis.y) state.vy -= state.vy * Math.min(TUNING.playerDrag*dt, 1);
-  state.px = Math.max(-70, Math.min(70, state.px + state.vx*dt));
-  state.py = Math.max(-45, Math.min(55, state.py + state.vy*dt));
-  player.position.set(state.px, state.py, 0);
-  player.rotation.z = -state.vx * 0.008;
-  player.rotation.x = state.vy * 0.008;
+  // 1. Input → pitch/roll (la nariz define la dirección de planeo)
+  //    Convención: pitch POSITIVO = nariz ARRIBA (sin(pitch) en noseVector)
+  playerPitch -= input.axis.y * TUNING.pitchRate * dt;   // joystick abajo = picar
+  playerRoll += input.axis.x * TUNING.rollRate * dt;
+  playerPitch = Math.max(-1.25, Math.min(1.25, playerPitch));  // ±72°
+  playerRoll = Math.max(-0.9, Math.min(0.9, playerRoll));
+  // 2. Boost (Space/tap) — impulso en dirección de la nariz (edge-triggered)
+  state.boostT -= dt;
+  if (input.actionPressed && state.boostT <= 0) {
+    state.boostT = TUNING.boostCooldown;
+    noseVector(_nose);
+    playerVel.addScaledVector(_nose, TUNING.boostImpulse);
+    beep(420, 0.08, "sine", 640);
+  }
+  // 3. Gravedad — siempre
+  playerVel.y -= TUNING.gravity * dt;
+  // 4. Aerodinámica: la velocidad se curva hacia la dirección de la nariz
+  //    (elytra: nariz abajo = aceleras; nariz arriba = pierdes velocidad)
+  const speed = playerVel.length();
+  state.speed = speed;
+  noseVector(_nose);           // _nose = dirección de la nariz
+  const align = Math.min(1, TUNING.turnRate * dt);
+  _tmpA.copy(_nose).multiplyScalar(speed);
+  playerVel.lerp(_tmpA, align);
+  // 5. Stall: sin velocidad el planeo colapsa → la nariz CAE para
+  //    recuperar velocidad en picada (como MC; el piloto contrarresta)
+  state.stalled = speed < TUNING.minStallSpeed;
+  if (state.stalled) {
+    playerPitch += (-0.6 - playerPitch) * Math.min(1, 0.6 * dt);
+    playerVel.x *= (1 - 1.0 * dt);
+    playerVel.z *= (1 - 1.0 * dt);
+  }
+  // 6. Cap de velocidad en picada
+  const sp2 = playerVel.length();
+  if (sp2 > TUNING.maxDiveSpeed) playerVel.multiplyScalar(TUNING.maxDiveSpeed / sp2);
+  // 7. Integrar posición (clamp dentro del mundo)
+  state.px += playerVel.x * dt;
+  state.py += playerVel.y * dt;
+  state.pz += playerVel.z * dt;
+  state.px = Math.max(-240, Math.min(240, state.px));
+  state.pz = Math.max(-240, Math.min(240, state.pz));
+  // 8. Kill-plane: recuperación (nunca softlock — protocolo de auditoría)
+  if (state.py < TUNING.killPlaneY) {
+    state.py = TUNING.spawnAltitude;
+    playerVel.set(0, -4, -TUNING.cruiseSpeed);
+    playerPitch = -0.2;
+    killPlayer("Caíste del mundo — recuperado");
+  }
+  // 9. Colisión con bloques de la Sky City (esférica aproximada)
+  for (const b of blocks) {
+    const dx = state.px - b.position.x, dy = state.py - b.position.y, dz = state.pz - b.position.z;
+    const hr = (b.w + b.h + b.d) / 6 * b.sc;   // radio medio del bloque
+    if (dx*dx + dy*dy + dz*dz < (hr + TUNING.playerR) * (hr + TUNING.playerR)) {
+      // rebote suave + daño
+      _tmpA.set(dx, dy, dz).normalize();
+      playerVel.addScaledVector(_tmpA, 14);
+      state.px += _tmpA.x * 2; state.py += _tmpA.y * 2; state.pz += _tmpA.z * 2;
+      killPlayer("¡Impacto con un bloque!");
+      break;
+    }
+  }
+  // Orientar el avatar (pitch/roll + yaw hacia la velocidad)
+  // rotation.x NEGATIVO = nariz arriba en three.js (pitch positivo = arriba)
+  player.position.set(state.px, state.py, state.pz);
+  const yaw = Math.atan2(-playerVel.x, -playerVel.z);
+  player.rotation.set(-playerPitch, yaw, -playerRoll);
+  // animación de vuelo
   const u = player.userData;
   const t = state.t;
-  u.legL.position.x = -1.0 + Math.sin(t*6)*0.25;
-  u.legR.position.x = 1.0 - Math.sin(t*6)*0.25;
+  const flap = Math.sin(t * 7) * 0.1;
+  u.wingL.rotation.z = 0.5 + flap;
+  u.wingR.rotation.z = -0.5 - flap;
   u.armL.rotation.z = -0.35 + Math.sin(t*5)*0.12;
   u.armR.rotation.z = 0.35 - Math.sin(t*5)*0.12;
   const flick = 1 + Math.sin(t*20)*0.35;
   u.flame.scale.set(1, 1, flick);
   u.flameIn.scale.set(1, 1, flick*0.8);
-  // auto-aim: enemigo más cercano en 3D (los enemigos son grupos con
-  // .position; el boss es {mesh} — normalizar con meshPos)
+  // auto-aim: enemigo más cercano en 3D
   const meshPos = (en) => en.mesh ? en.mesh.position : en.position;
   let tx = null, td = TUNING.laserRange;
   const consider = (en) => {
     const p = meshPos(en);
-    const d = Math.hypot(p.x-state.px, p.y-state.py, Math.abs(p.z));
+    const d = Math.hypot(p.x-state.px, p.y-state.py, p.z-state.pz);
     if (d < td) { td = d; tx = en; }
   };
   enemies.each(consider);
@@ -472,13 +557,13 @@ function updatePlayer(dt) {
   if (tx && state.fireT <= 0) {
     state.fireT = TUNING.fireCooldown;
     const target = meshPos(tx);
-    _scratchDir.set(target.x - state.px, target.y - state.py, target.z).normalize();
-    const dir = _scratchDir;
+    _tmpB.set(target.x - state.px, target.y - state.py, target.z - state.pz).normalize();
+    const dir = _tmpB;
     const color = state.weapon === 0 ? MAT.laserPulse : MAT.laserBeam;
     if (state.weapon === 0) {
       lasers.spawn(l => {
         l.visible = true;
-        l.position.set(state.px + dir.x*2, state.py + dir.y*2, dir.z*2);
+        l.position.set(state.px + dir.x*2, state.py + dir.y*2, state.pz + dir.z*2);
         l.dir = dir.clone(); l.big = false;
         l.traverse(m => { m.material = color; m.scale.set(1, 1, 1); });
       });
@@ -487,8 +572,8 @@ function updatePlayer(dt) {
       for (let i = -1; i <= 1; i++) {
         lasers.spawn(l => {
           l.visible = true;
-          _scratchOff.set(-dir.y, dir.x, 0).multiplyScalar(i*1.6);
-          l.position.set(state.px + dir.x*2 + _scratchOff.x, state.py + dir.y*2 + _scratchOff.y, dir.z*2 + _scratchOff.z);
+          _tmpA.set(-dir.y, dir.x, 0).multiplyScalar(i*1.6);
+          l.position.set(state.px + dir.x*2 + _tmpA.x, state.py + dir.y*2 + _tmpA.y, state.pz + dir.z*2 + _tmpA.z);
           l.dir = dir.clone(); l.big = true;
           l.traverse(m => { m.material = color; m.scale.set(1.8, 1.8, 1); });
         });
@@ -497,13 +582,26 @@ function updatePlayer(dt) {
     }
   }
 }
+// Calcula el vector de la nariz del planeo (pitch + yaw → dirección).
+// Convención three.js: rotación 0 = mirando -z → yaw = atan2(-vx, -vz).
+// pitch POSITIVO = nariz ARRIBA: sin(pitch) > 0 → componente y > 0.
+function noseVector(out) {
+  const yaw = Math.atan2(-playerVel.x, -playerVel.z);
+  _fwd.set(
+    -Math.cos(playerPitch) * Math.sin(yaw),
+    Math.sin(playerPitch),
+    -Math.cos(playerPitch) * Math.cos(yaw)
+  );
+  out.copy(_fwd);
+  return out;
+}
 function updateWaves(dt) {
   if (state.wave === 1) {
     state.wave1SpawnT -= dt;
     if (state.wave1SpawnT <= 0 && enemies.count() < 5) {
       const remaining = TUNING.wave1Count - state.wave1Kills - enemies.count();
       if (remaining > 0) {
-        state.wave1SpawnT = Math.max(0.55, TUNING.wave1SpawnEvery - state.t*0.005);
+        state.wave1SpawnT = Math.max(0.6, TUNING.wave1SpawnEvery - state.t*0.005);
         spawnDrone();
       }
     }
@@ -518,7 +616,9 @@ function updateWaves(dt) {
     }
     const esc = state.escort;
     esc.t += dt;
-    esc.mesh.position.set(16 + Math.sin(esc.t*0.7)*5, 0, -90 + esc.t*6);
+    // la escolta planea a tu lado (formación en V), siguiendo tu velocidad
+    esc.mesh.position.set(state.px + 18, state.py + 3, state.pz - 12);
+    esc.mesh.rotation.set(playerPitch * 0.6, Math.atan2(playerVel.x, playerVel.z), playerRoll * 0.5);
     $("escortBar").style.width = (esc.hp / TUNING.escortHP * 100) + "%";
     state.escortSpawnT -= dt;
     if (state.escortSpawnT <= 0 && state.wave2Kills + enemies.count() < TUNING.wave2Interceptors) {
@@ -528,23 +628,27 @@ function updateWaves(dt) {
     enemies.each(en => {
       if (en.kind === "inter" && en.target === "escort") {
         const e = esc.mesh.position;
-        const dx = e.x - en.position.x, dy = e.y - en.position.y;
-        const d = Math.hypot(dx, dy) || 1;
-        en.position.x += (dx/d) * TUNING.interSpeed * 0.6 * dt;
-        en.position.y += (dy/d) * TUNING.interSpeed * 0.6 * dt;
-        if (d < 5 && Math.abs(en.position.z - e.z) < 5) {
+        const dx = e.x - en.position.x, dy = e.y - en.position.y, dz = e.z - en.position.z;
+        const d = Math.hypot(dx, dy, dz) || 1;
+        en.position.x += (dx/d) * TUNING.interSpeed * 0.7 * dt;
+        en.position.y += (dy/d) * TUNING.interSpeed * 0.7 * dt;
+        en.position.z += (dz/d) * TUNING.interSpeed * 0.7 * dt;
+        if (d < 5) {
           en.alive = false; en.visible = false;
           esc.hp--; beep(150, 0.09, "sawtooth", 70);
           if (esc.hp <= 0) killPlayer("¡La escolta fue destruida!");
         }
       }
     });
-    if (esc.mesh.position.z > 40) { state.waveDone = true; $("escortBarWrap").style.opacity = 0; }
+    // misión completada: sobrevivir 30s de escolta
+    if (esc.t > 30) { state.waveDone = true; $("escortBarWrap").style.opacity = 0; }
   } else if (state.wave === 3) {
     if (!state.boss) {
       bossMesh = buildBoss();
       world3d.add(bossMesh);
-      bossMesh.position.set(0, 6, TUNING.spawnZ);
+      // el boss aparece delante de ti, anclado en el mundo
+      const yaw = Math.atan2(-playerVel.x, -playerVel.z);
+      bossMesh.position.set(state.px - Math.sin(yaw)*150, state.py + 6, state.pz - Math.cos(yaw)*150);
       state.boss = { mesh: bossMesh, hp: TUNING.bossHP, phase: "idle", t: TUNING.bossPhaseIdle, fireT: 0 };
       $("bossBarWrap").style.opacity = 1;
       banner("MISIÓN 3 — OMEGA MEGA-BOT");
@@ -552,9 +656,9 @@ function updateWaves(dt) {
     }
     const boss = state.boss;
     $("bossBar").style.width = (boss.hp / TUNING.bossHP * 100) + "%";
-    boss.mesh.position.z += 7 * dt;
-    boss.mesh.position.x += Math.sin(state.t*0.5) * 4 * dt;
-    boss.mesh.rotation.y = Math.sin(state.t*0.4) * 0.2;
+    // el boss flota y gira lentamente, mirando al jugador
+    boss.mesh.lookAt(state.px, state.py, state.pz);
+    boss.mesh.position.y += Math.sin(state.t * 0.4) * 2 * dt;
     boss.t -= dt;
     const eye = boss.mesh.userData.eye;
     const vuln = boss.phase === "vulnerable";
@@ -573,8 +677,8 @@ function updateWaves(dt) {
           bossShots.spawn(s => {
             s.visible = true;
             s.position.set(boss.mesh.position.x + i*4, boss.mesh.position.y + i*2, boss.mesh.position.z);
-            _scratchShot.set(state.px - s.position.x + (i*2), state.py - s.position.y + (i*1), 0 - s.position.z).normalize();
-            s.dir = _scratchShot.clone();
+            _tmpA.set(state.px - s.position.x + (i*2), state.py - s.position.y + (i*1), state.pz - s.position.z).normalize();
+            s.dir = _tmpA.clone();
             s.r = 1.2;
             s.traverse(m => { m.material = MAT.bossEye; m.scale.set(1.6, 1.6, 1.6); });
           });
@@ -599,7 +703,15 @@ function spawnDrone() {
     en.kind = "drone"; en.hp = TUNING.droneHP; en.r = TUNING.droneR;
     en.phase = rng()*7; en.t = 0;
     en.visible = true;
-    en.position.set((rng()-0.5)*80, (rng()-0.5)*50, TUNING.spawnZ);
+    // aparecen alrededor del jugador, delante
+    const yaw = Math.atan2(playerVel.x, playerVel.z);
+    const a = yaw + (rng()-0.5)*2.4;
+    const r = TUNING.enemySpawnRadius;
+    en.position.set(
+      state.px + Math.sin(a) * r,
+      state.py + (rng()-0.5)*60 + 10,
+      state.pz + Math.cos(a) * r
+    );
   });
 }
 function spawnInterceptor() {
@@ -607,7 +719,14 @@ function spawnInterceptor() {
     en.kind = "inter"; en.hp = TUNING.interHP; en.r = TUNING.interR;
     en.phase = rng()*7; en.t = 0; en.target = rng() < 0.6 ? "escort" : "player";
     en.visible = true;
-    en.position.set((rng()-0.5)*80, (rng()-0.5)*50, TUNING.spawnZ);
+    const yaw = Math.atan2(playerVel.x, playerVel.z);
+    const a = yaw + (rng()-0.5)*2.8;
+    const r = TUNING.enemySpawnRadius * 0.9;
+    en.position.set(
+      state.px + Math.sin(a) * r,
+      state.py + (rng()-0.5)*50,
+      state.pz + Math.cos(a) * r
+    );
   });
 }
 function killEnemy(en) {
@@ -642,11 +761,15 @@ function killPlayer(reason) {
   }
 }
 function updateWorld(dt) {
-  // bloques del sky city (InstancedMesh — actualizar matrices + reciclar)
+  // bloques: reciclar alrededor del jugador (mundo abierto)
   for (const b of blocks) {
-    b.position.z += 18 * dt;
-    if (b.position.z > 30) {
-      b.position.set((rng()-0.5)*220, (rng()-0.5)*140, TUNING.spawnZ - rng()*100);
+    const dx = b.position.x - state.px, dy = b.position.y - state.py, dz = b.position.z - state.pz;
+    if (Math.abs(dx) > 300 || Math.abs(dy) > 240 || Math.abs(dz) > 300) {
+      b.position.set(
+        state.px + (rng()-0.5)*420,
+        state.py + (rng()-0.5)*240 + 40,
+        state.pz + (rng()-0.5)*420
+      );
       b.sc = 0.8 + rng()*1.6;
     }
   }
@@ -657,26 +780,35 @@ function updateWorld(dt) {
     l.age += dt;
     if (l.age > 2.5) l.alive = false;
   });
-  // enemigos: avanzan hacia el jugador
+  // enemigos: PERSIGUEN al jugador (o a la escolta) en 3D
   enemies.each(en => {
     en.t += dt;
     const speed = en.kind === "drone" ? TUNING.droneSpeed : TUNING.interSpeed;
-    en.position.z += speed * dt;
-    if (en.kind === "drone") {
-      en.position.x += Math.sin(en.t*2 + en.phase) * 6 * dt;
-      en.position.y += Math.cos(en.t*1.7 + en.phase) * 4 * dt;
-      en.rotation.y += dt * 2;
-    } else if (en.target !== "escort") {
-      en.position.x += (state.px - en.position.x) * 0.4 * dt;
-      en.position.y += (state.py - en.position.y) * 0.4 * dt;
+    let targetX = state.px, targetY = state.py, targetZ = state.pz;
+    if (en.kind === "inter" && en.target === "escort" && state.escort) {
+      targetX = state.escort.mesh.position.x;
+      targetY = state.escort.mesh.position.y;
+      targetZ = state.escort.mesh.position.z;
     }
-    if (en.position.z > 8) { en.alive = false; en.visible = false; }
+    const dx = targetX - en.position.x, dy = targetY - en.position.y, dz = targetZ - en.position.z;
+    const d = Math.hypot(dx, dy, dz) || 1;
+    en.position.x += (dx/d) * speed * dt;
+    en.position.y += (dy/d) * speed * dt;
+    en.position.z += (dz/d) * speed * dt;
+    if (en.kind === "drone") {
+      // wobble
+      en.position.x += Math.sin(en.t*2 + en.phase) * 3 * dt;
+      en.position.y += Math.cos(en.t*1.7 + en.phase) * 2 * dt;
+    }
+    en.rotation.y += dt * 2;
+    // fuera de rango → reciclar
+    if (d > 420) { en.alive = false; en.visible = false; }
   });
   // proyectiles del boss
   bossShots.each(s => {
     s.position.addScaledVector(s.dir, 90 * dt);
     s.age += dt;
-    if (s.age > 5) s.alive = false;
+    if (s.age > 6) s.alive = false;
   });
   // colisiones láser → enemigos
   lasers.each(l => {
@@ -722,7 +854,7 @@ function updateWorld(dt) {
     if (d < TUNING.coreMagnetR) {
       c.position.x += (state.px - c.position.x) * 2.2 * dt;
       c.position.y += (state.py - c.position.y) * 2.2 * dt;
-      c.position.z += (0 - c.position.z) * 2.2 * dt;
+      c.position.z += (state.pz - c.position.z) * 2.2 * dt;
     }
     c.rotation.y += dt * 3;
     if (!state.dead && d < 3) {
@@ -745,19 +877,22 @@ function updateWorld(dt) {
   }
 }
 /* ============================== RENDER ============================== */
-// Scratch objects: cero allocaciones por frame (budget perf — GC hitches
-// son la causa #1 de "corre bien y luego tartamudea").
 const camShake = { x: 0, y: 0 };
 const _scratchDesired = new THREE.Vector3();
-const _scratchDir = new THREE.Vector3();
-const _scratchOff = new THREE.Vector3();
-const _scratchShot = new THREE.Vector3();
 function render3d() {
-  _scratchDesired.set(state.px, state.py + TUNING.camOffset.y, TUNING.camOffset.z);
-  camera.position.lerp(_scratchDesired, 0.09);
+  // cámara en 3a persona detrás de la velocidad (elytra: sigues al planeo)
+  const yaw = Math.atan2(-playerVel.x, -playerVel.z);
+  const backX = -Math.sin(yaw) * TUNING.camOffset.z;
+  const backZ = -Math.cos(yaw) * TUNING.camOffset.z;
+  _scratchDesired.set(
+    state.px + backX,
+    state.py + TUNING.camOffset.y,
+    state.pz + backZ
+  );
+  camera.position.lerp(_scratchDesired, 0.1);
   camera.position.x += camShake.x;
   camera.position.y += camShake.y;
-  camera.lookAt(state.px, state.py, -8);
+  camera.lookAt(state.px, state.py, state.pz);
   camShake.x *= 0.88; camShake.y *= 0.88;
   player.visible = !(state.invuln > 0 && Math.floor(state.t*14) % 2 === 0);
   renderer.render(world3d, camera);
@@ -768,11 +903,15 @@ document.addEventListener("visibilitychange", () => { paused = document.hidden |
 $("startBtn").onclick = () => { audioInit(); beep(800, 0.05, "sine"); setScene("play"); };
 $("retryBtn").onclick = () => { beep(800, 0.05, "sine"); setScene("play"); };
 $("againBtn").onclick = () => { beep(800, 0.05, "sine"); setScene("play"); };
-// sky city: bloques 3D (InstancedMesh — 2 draw calls, no 80)
+// sky city: bloques instanciados alrededor del spawn
 for (let i = 0; i < TUNING.blockCap; i++) {
   const w = 12 + rng()*26, h = 12 + rng()*26, d = 12 + rng()*26;
+  const bx = (rng()-0.5)*420, bz = (rng()-0.5)*420;
+  const by = (rng()-0.5)*240 + 40;
+  // el spawn (0, spawnAltitude, 0) queda libre — no nacer dentro de un bloque
+  const clear = Math.hypot(bx, by - TUNING.spawnAltitude, bz) > TUNING.spawnClearRadius;
   blocks.push({
-    position: new THREE.Vector3((rng()-0.5)*240, (rng()-0.5)*160, TUNING.spawnZ - rng()*260),
+    position: new THREE.Vector3(clear ? bx : bx + (bx >= 0 ? 1 : -1)*140, clear ? by : TUNING.spawnAltitude - 90, clear ? bz : bz + (bz >= 0 ? 1 : -1)*140),
     rot: new THREE.Euler(0, rng()*3, 0),
     sc: 0.8 + rng()*1.4,
     w, h, d,
